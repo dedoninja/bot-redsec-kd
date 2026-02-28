@@ -47,7 +47,7 @@ async def ajuda(ctx):
 async def assign_kd(ctx, gamertag: str, platform: str):
     platform = platform.lower()
     if platform not in PLATFORMS:
-        await ctx.send('❌ Plataforma inválida! Use: **pc**, **steam**, **psn** ou **xbox**.\nExemplo: `!kd SeuNick pc`')
+        await ctx.send('❌ Plataforma inválida! Use: **pc**, **steam**, **psn** ou **xbox**.\nExemplo: `!kd SeuNick pc`\n• Busque usando a sua ID da EA/Origin.')
         return
 
     api_platform = PLATFORMS[platform]
@@ -65,7 +65,7 @@ async def assign_kd(ctx, gamertag: str, platform: str):
                 break
 
         if kd == 0.0:
-            await ctx.send(f'⚠️ **{gamertag}** sem stats no **Redsec Squad** ainda.\n• Jogue mais partidas BR Squads\n• Ative "Gameplay Data Sharing" no BF6')
+            await ctx.send(f'⚠️ **{gamertag}** sem stats no **Redsec Squad** ainda.\n• Jogue mais partidas BR Squads.\n• Ative "Gameplay Data Sharing" no BF6.\n• Busque usando a sua ID da EA/Origin.')
             return
 
         member = ctx.author
@@ -105,7 +105,7 @@ async def assign_kd(ctx, gamertag: str, platform: str):
         )
 
     except Exception as e:
-        await ctx.send(f'❌ Erro ao buscar stats: {str(e)}\nVerifique gamertag/plataforma ou contate a **staff** do servidor.')
+        await ctx.send(f'❌ Erro ao buscar stats: {str(e)}\nVerifique gamertag/plataforma ou contate a **staff** do servidor.\n• Busque usando a sua ID da EA/Origin.')
 
 @bot.event
 async def on_command_error(ctx, error):
