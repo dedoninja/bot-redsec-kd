@@ -4,7 +4,7 @@ import requests
 import os
 
 # ==================== CONFIGS ====================
-TOKEN = os.getenv('TOKEN')  # O token vem da variável de ambiente (Render)
+TOKEN = os.getenv('TOKEN')  # Token do ambiente (Fly.io)
 
 SERVER_ID = 405506950562840577
 
@@ -27,7 +27,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents, case_insensitive=True)
 bot.remove_command('help')
 
 @bot.event
