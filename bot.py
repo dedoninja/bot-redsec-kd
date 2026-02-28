@@ -3,7 +3,7 @@ from discord.ext import commands
 import requests
 
 # ==================== CONFIGS ====================
-TOKEN = 'MTQ3NzMyNTg0NTI3NzE4NDExMg.GOuuVs.ojpB04tAe-SFeZXwppD9geR4GJlXYhc7HO1V-w'  # Substitua pelo seu token real
+TOKEN = 'MTQ3NzMyNTg0NTI3NzE4NDExMg.GJ2c-H.9L88pSFkXTHLu_hc5oWas784COPTn_IKgC7JOs'  # Substitua pelo seu token real
 
 SERVER_ID = 405506950562840577
 
