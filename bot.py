@@ -1,9 +1,10 @@
 import discord
 from discord.ext import commands
 import requests
+import os
 
 # ==================== CONFIGS ====================
-TOKEN = 'MTQ3NzMyNTg0NTI3NzE4NDExMg.GJ2c-H.9L88pSFkXTHLu_hc5oWas784COPTn_IKgC7JOs'  # Substitua pelo seu token real
+TOKEN = os.getenv('TOKEN')  # O token vem da variável de ambiente (Render)
 
 SERVER_ID = 405506950562840577
 
@@ -27,7 +28,7 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
-bot.remove_command('help')  # Remove o help padrão do Discord
+bot.remove_command('help')
 
 @bot.event
 async def on_ready():
