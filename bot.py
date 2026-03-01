@@ -2,22 +2,24 @@ import discord
 from discord.ext import commands
 import requests
 import os
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
+# ================== FLASK DUMMY ==================
 from flask import Flask
 from threading import Thread
 
-# ==================== SERVIDOR DUMMY PARA FLY.IO (porta 8080) ====================
+# Servidor dummy para o Fly.io (porta 8080)
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Redsec Squad online! Tudo certo. 🔥"
+    return "Bot Redsec Squad online! Tudo certo."
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-# Inicia o servidor Flask em background (não bloqueia o bot)
 Thread(target=run_flask, daemon=True).start()
-# ==============================================================================
 
 # ==================== CONFIGS ====================
 TOKEN = os.getenv('TOKEN')  # Token do ambiente (Fly.io)
@@ -33,7 +35,6 @@ KD_ROLES = [ROLE_KD2, ROLE_KD3, ROLE_KD4, ROLE_KD5]
 
 PLATFORMS = {
     'pc': 'pc',
-    'steam': 'pc',
     'psn': 'psn',
     'xbox': 'xbox'
 }
@@ -48,13 +49,13 @@ bot.remove_command('help')
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user} online! Use !kd <gamertag> <plataforma>')
+    print(f'{bot.user} online! Use !kd <seu ID EA/Origin> pc')
 
 @bot.command(name='ajuda', aliases=['help'])
 async def ajuda(ctx):
     embed = discord.Embed(
         title="Como usar o bot de KD Redsec Squad",
-        description="Comando: `!kd <seu gamertag> <plataforma>`\n\n**Plataformas válidas:**\n- `pc` ou `steam` (PC)\n- `psn` (PlayStation)\n- `xbox` (Xbox)\n\n**Exemplo genérico:**\n`!kd SeuNick pc`\n\nO bot busca seu KD no modo **Redsec Squad** e atribui a role correspondente automaticamente.\n\nQualquer dúvida, chama a staff!",
+        description="Comando: `!kd <seu ID EA/Origin> pc`\n\n**Plataformas válidas:**\n- `pc` (Steam ou launcher EA)\n- `psn` (PlayStation)\n- `xbox` (Xbox)\n\n**Exemplo:**\n`!kd SeuID pc`\n\nO bot busca seu KD no modo **Redsec Squad** e atribui a role correspondente automaticamente.\n\nQualquer dúvida, chama a staff!",
         color=discord.Color.blue()
     )
     await ctx.send(embed=embed)
@@ -63,7 +64,7 @@ async def ajuda(ctx):
 async def assign_kd(ctx, gamertag: str, platform: str):
     platform = platform.lower()
     if platform not in PLATFORMS:
-        await ctx.send('❌ Plataforma inválida! Use: **pc**, **steam**, **psn** ou **xbox**.\nExemplo: `!kd SeuNick pc`\n• Busque usando a sua ID da EA/Origin.')
+        await ctx.send('❌ Plataforma inválida! Use apenas: **pc**, **psn** ou **xbox**.\nExemplo: `!kd SeuID pc`\n• Use sempre o **ID da EA/Origin** (mesmo se jogar no Steam).')
         return
 
     api_platform = PLATFORMS[platform]
@@ -72,16 +73,32 @@ async def assign_kd(ctx, gamertag: str, platform: str):
     await ctx.send(f'🔍 Buscando KD **Redsec Squad** de **{gamertag}** ({platform})...')
 
     try:
-        resp = requests.get(url, timeout=45).json()
+        # Sessão com retry automático (tenta 2 vezes no total)
+        session = requests.Session()
+        retries = Retry(total=1, backoff_factor=1, status_forcelist=[500, 502, 503, 504])  # 1 retry = 2 tentativas
+        session.mount('https://', HTTPAdapter(max_retries=retries))
+
+        resp = session.get(url, timeout=45)  # 45 segundos por tentativa
+
+        if resp.status_code != 200:
+            if resp.status_code == 404:
+                await ctx.send(f'❌ ID **{gamertag}** não encontrado na plataforma **{platform}**.\n• Verifique se digitou o **ID da EA/Origin** exatamente (mesmo se jogar no Steam).\n• Perfil privado ou sem stats no Redsec Squad.\n• Contate a staff se persistir.')
+            elif resp.status_code == 429:
+                await ctx.send('❌ API sobrecarregada (rate limit). Tente novamente em 1 minuto.')
+            else:
+                await ctx.send(f'❌ Erro na API: Status {resp.status_code}. Tente novamente ou contate a staff.')
+            return
+
+        data = resp.json()
         kd = 0.0
 
-        for mode in resp.get('gameModes', []):
+        for mode in data.get('gameModes', []):
             if mode.get('gamemodeName') == 'Redsec Squad':
                 kd = float(mode.get('killDeath', 0.0))
                 break
 
         if kd == 0.0:
-            await ctx.send(f'⚠️ **{gamertag}** sem stats no **Redsec Squad** ainda.\n• Jogue mais partidas BR Squads.\n• Ative "Gameplay Data Sharing" no BF6.\n• Busque usando a sua ID da EA/Origin.')
+            await ctx.send(f'⚠️ **{gamertag}** sem stats no **Redsec Squad** ainda.\n• Jogue mais partidas BR Squads.\n• Ative "Gameplay Data Sharing" no BF6.\n• Use o **ID da EA/Origin** correto (mesmo no Steam).')
             return
 
         member = ctx.author
@@ -120,8 +137,12 @@ async def assign_kd(ctx, gamertag: str, platform: str):
             f'Você já pode criar ou entrar salas restritas ao seu KD. 🔥'
         )
 
+    except requests.exceptions.Timeout:
+        await ctx.send('❌ Demora de resposta do servidor de estatísticas da EA (API). Tente novamente em alguns minutos.\n• Possível sobrecarga temporária no API.')
+    except requests.exceptions.JSONDecodeError:
+        await ctx.send('❌ Resposta da API inválida (não é JSON). Possível "404 Not Found" ou "Internal Server Error" no servidor de estatísticas (API).\n• Tente novamente em alguns minutos pois pode ser sobrecarga temporária no API.\n• Verifique se o ID da EA/Origin está correto e o perfil está público.\n• Jogue algumas partidas se você acabou de mudar o perfil para público.')
     except Exception as e:
-        await ctx.send(f'❌ Erro ao buscar stats: {str(e)}\nVerifique gamertag/plataforma ou contate a **staff** do servidor.\n• Busque usando a sua ID da EA/Origin.')
+        await ctx.send(f'❌ Erro ao buscar stats: {str(e)}\nVerifique o ID da EA/Origin e plataforma.\n• Use o **ID da EA/Origin** correto (mesmo se jogar no Steam).\n• Contate a staff se persistir.')
 
 @bot.event
 async def on_command_error(ctx, error):
