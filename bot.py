@@ -2,6 +2,22 @@ import discord
 from discord.ext import commands
 import requests
 import os
+from flask import Flask
+from threading import Thread
+
+# ==================== SERVIDOR DUMMY PARA FLY.IO (porta 8080) ====================
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot Redsec Squad online! Tudo certo. 🔥"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+# Inicia o servidor Flask em background (não bloqueia o bot)
+Thread(target=run_flask, daemon=True).start()
+# ==============================================================================
 
 # ==================== CONFIGS ====================
 TOKEN = os.getenv('TOKEN')  # Token do ambiente (Fly.io)
@@ -56,7 +72,7 @@ async def assign_kd(ctx, gamertag: str, platform: str):
     await ctx.send(f'🔍 Buscando KD **Redsec Squad** de **{gamertag}** ({platform})...')
 
     try:
-        resp = requests.get(url, timeout=15).json()
+        resp = requests.get(url, timeout=45).json()
         kd = 0.0
 
         for mode in resp.get('gameModes', []):
