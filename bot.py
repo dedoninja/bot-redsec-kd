@@ -72,7 +72,7 @@ async def ajuda(ctx):
         ),
         color=discord.Color.blue()
     )
-    embed.set_image(url=GIF_EA_ID)  # Embeda o GIF
+    embed.set_image(url=GIF_EA_ID)
     await ctx.send(embed=embed)
 
 @bot.command(name='kd')
@@ -83,7 +83,7 @@ async def assign_kd(ctx, gamertag: str, platform: str):
             '❌ Plataforma inválida! Use apenas: **pc**, **psn** ou **xbox**.\n'
             f'Exemplo: `!kd SeuID pc`\n'
             f'• Use sempre o **ID da EA/Origin** (mesmo se jogar no Steam).\n'
-            f'• Como pegar seu ID da EA? Veja aqui: {GIF_EA_ID}'
+            f'• Como pegar seu ID da EA: {GIF_EA_ID}'
         )
         return
 
@@ -115,14 +115,26 @@ async def assign_kd(ctx, gamertag: str, platform: str):
             return
 
         data = resp.json()
-        kd = 0.0
 
-        for mode in data.get('gameModes', []):
-            if mode.get('gamemodeName') == 'Redsec':
-                kd = float(mode.get('killDeath', 0.0))
+        kd = 0.0
+        found_mode = False
+
+        # Procura o KD geral em "gameModeGroups" (onde fica "Redsec")
+        for group in data.get('gameModeGroups', []):
+            if group.get('gamemodeName') == 'Redsec':
+                kd = float(group.get('killDeath', 0.0))
+                found_mode = True
                 break
 
-        if kd == 0.0:
+        # Fallback: se não achar em gameModeGroups, procura em gameModes (por segurança)
+        if not found_mode:
+            for mode in data.get('gameModes', []):
+                if mode.get('gamemodeName') == 'Redsec':
+                    kd = float(mode.get('killDeath', 0.0))
+                    found_mode = True
+                    break
+
+        if not found_mode or kd == 0.0:
             await ctx.send(
                 f'⚠️ **{gamertag}** sem stats no **Redsec** ainda.\n'
                 f'• Jogue mais partidas de Redsec.\n'
