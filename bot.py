@@ -57,7 +57,7 @@ async def on_ready():
 @bot.command(name='ajuda', aliases=['help'])
 async def ajuda(ctx):
     embed = discord.Embed(
-        title="Como usar o bot de KD Redsec Squad",
+        title="Como usar o bot de KD Redsec",
         description=(
             "Comando: `!kd <seu ID EA/Origin> pc`\n\n"
             "**Plataformas válidas:**\n"
@@ -66,13 +66,13 @@ async def ajuda(ctx):
             "- `xbox` (Xbox)\n\n"
             "**Exemplo:**\n"
             "`!kd SeuID pc`\n\n"
-            "O bot busca seu KD no modo **Redsec Squad** e atribui a role correspondente automaticamente.\n\n"
-            "**Como pegar seu ID da EA/Origin no GIF abaixo.**\n\n"
+            "O bot busca seu KD no modo **Redsec** e atribui a role correspondente automaticamente.\n\n"
+            "**Como pegar seu ID da EA/Origin?** Veja o GIF abaixo!\n\n"
             "Qualquer dúvida, chama a staff!"
         ),
         color=discord.Color.blue()
     )
-    embed.set_image(url=GIF_EA_ID)  # Embeda o GIF como imagem principal
+    embed.set_image(url=GIF_EA_ID)  # Embeda o GIF
     await ctx.send(embed=embed)
 
 @bot.command(name='kd')
@@ -83,14 +83,14 @@ async def assign_kd(ctx, gamertag: str, platform: str):
             '❌ Plataforma inválida! Use apenas: **pc**, **psn** ou **xbox**.\n'
             f'Exemplo: `!kd SeuID pc`\n'
             f'• Use sempre o **ID da EA/Origin** (mesmo se jogar no Steam).\n'
-            f'• Como pegar seu ID da EA: {GIF_EA_ID}'
+            f'• Como pegar seu ID da EA? Veja aqui: {GIF_EA_ID}'
         )
         return
 
     api_platform = PLATFORMS[platform]
     url = f"https://api.gametools.network/bf6/stats/?categories=multiplayer&raw=false&format_values=true&seperation=false&name={gamertag}&platform={api_platform}&skip_battlelog=true"
 
-    await ctx.send(f'🔍 Buscando KD **Redsec Squad** de **{gamertag}** ({platform})...')
+    await ctx.send(f'🔍 Buscando KD **Redsec** de **{gamertag}** ({platform})...')
 
     try:
         session = requests.Session()
@@ -104,8 +104,8 @@ async def assign_kd(ctx, gamertag: str, platform: str):
                 await ctx.send(
                     f'❌ ID **{gamertag}** não encontrado na plataforma **{platform}**.\n'
                     f'• Verifique se digitou o **ID da EA/Origin** exatamente (mesmo se jogar no Steam).\n'
-                    f'• Perfil privado ou sem stats no Redsec Squad. Como deixar seu perfil público: <{GIF_DataShare}>\n'
-                    f'• Como pegar seu ID da EA: {GIF_EA_ID}\n'
+                    f'• Perfil privado ou sem stats no Redsec?\n'
+                    f'• Como pegar seu ID da EA? Veja aqui: {GIF_EA_ID}\n'
                     f'• Contate a staff se persistir.'
                 )
             elif resp.status_code == 429:
@@ -118,17 +118,17 @@ async def assign_kd(ctx, gamertag: str, platform: str):
         kd = 0.0
 
         for mode in data.get('gameModes', []):
-            if mode.get('gamemodeName') == 'Redsec Squad':
+            if mode.get('gamemodeName') == 'Redsec':
                 kd = float(mode.get('killDeath', 0.0))
                 break
 
         if kd == 0.0:
             await ctx.send(
-                f'⚠️ **{gamertag}** sem stats no **Redsec Squad** ainda.\n'
-                f'• Jogue mais partidas BR Squads.\n'
-                f'• Ative "Gameplay Data Sharing" no BF6: <{GIF_DataShare}>\n'
+                f'⚠️ **{gamertag}** sem stats no **Redsec** ainda.\n'
+                f'• Jogue mais partidas de Redsec.\n'
+                f'• Ative "Gameplay Data Sharing" no BF6.\n'
                 f'• Use o **ID da EA/Origin** correto (mesmo no Steam).\n'
-                f'• Como pegar seu ID da EA: {GIF_EA_ID}'
+                f'• Como pegar seu ID da EA? Veja aqui: {GIF_EA_ID}'
             )
             return
 
@@ -152,7 +152,7 @@ async def assign_kd(ctx, gamertag: str, platform: str):
             new_role_id = ROLE_KD5
             role_name = 'Redsec KD5+'
         else:
-            await ctx.send(f'📉 KD **{kd:.2f}** no Redsec Squad (abaixo de 2.0). Nenhuma role atribuída.')
+            await ctx.send(f'📉 KD **{kd:.2f}** no Redsec (abaixo de 2.0). Nenhuma role atribuída.')
             return
 
         new_role = guild.get_role(new_role_id)
@@ -163,7 +163,7 @@ async def assign_kd(ctx, gamertag: str, platform: str):
         await member.add_roles(new_role)
 
         await ctx.send(
-            f'✅ KD **Redsec Squad** atual: **{kd:.2f}**\n'
+            f'✅ KD **Redsec** atual: **{kd:.2f}**\n'
             f'Role atribuída: **{role_name}**\n'
             f'Você já pode criar ou entrar salas restritas ao seu KD. 🔥'
         )
