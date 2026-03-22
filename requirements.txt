@@ -1,3 +1,4 @@
 discord.py==2.4.0
 requests==2.32.3
 flask==3.0.3
+urllib3==2.2.2
