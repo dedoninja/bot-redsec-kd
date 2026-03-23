@@ -104,7 +104,7 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
     api_platform = plataforma
     base_url = "https://api.gametools.network/bf6/stats/?categories=multiplayer&raw=false&format_values=true&seperation=false&skip_battlelog=true"
 
-    await ctx.respond(f'<a:buscabf6:1485382186902229002> Buscando KD **Redsec** de **{gamertag}** ({plataforma})...')
+    await ctx.respond(f'<a:buscabf6:1485382186902229002> Buscando KD **Redsec** de **{gamertag}** ({plataforma})... *Pode demorar até 1 minuto.*')
 
     try:
         session = requests.Session()
@@ -217,19 +217,23 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
         suspeita_role = None
         suspeita_nome = "Honesto"
 
-        if human_pct >= 70:
+        if human_pct == 0.0:
+            suspeita_nome = "Human% não disponível ou perfil sem dados suficientes (0.00%)"
+
+        elif human_pct >= 70.0:
             suspeita_nome = "Honesto"
-        elif human_pct >= 50:
+
+        elif human_pct >= 50.0:
             suspeita_role = guild.get_role(ROLE_SUSPEITO)
             suspeita_nome = "Sus 50-70%"
-        elif human_pct >= 30.01:
-            suspeita_role = guild.get_role(ROLE_CHEATER)
-            suspeita_nome = "Cheater 0-30%"
-        elif human_pct > 0.00:
+
+        elif human_pct >= 30.0:
             suspeita_role = guild.get_role(ROLE_SUSPEITO_PLUS)
             suspeita_nome = "Sus 30-50%"
+
         else:
-            suspeita_nome = "Human% não disponível ou perfil sem dados suficientes (0.00%)"
+            suspeita_role = guild.get_role(ROLE_CHEATER)
+            suspeita_nome = "Cheater 0-30%"
 
         if suspeita_role:
             await member.add_roles(suspeita_role)
@@ -301,7 +305,7 @@ async def hc(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
     api_platform = plataforma
     base_url = "https://api.gametools.network/bf6/stats/?categories=multiplayer&raw=false&format_values=true&seperation=false&skip_battlelog=true"
 
-    await ctx.respond(f'<a:buscabf6:1485382186902229002> Consultando human% de **{gamertag}** ({plataforma})...')
+    await ctx.respond(f'<a:buscabf6:1485382186902229002> Consultando human% de **{gamertag}** ({plataforma})... *Pode demorar até 1 minuto.*')
 
     try:
         session = requests.Session()
@@ -360,16 +364,16 @@ async def hc(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
                         human_pct_str = data.get('humanPrecentage', '0')
                         human_pct = float(human_pct_str.replace('%', ''))
 
+        float(human_pct_str.replace('%', '').strip())
+
         if human_pct == 0.0:
             categoria = "Human% não disponível ou perfil sem dados suficientes (0.00%)"
-        elif human_pct >= 70:
+        elif human_pct >= 70.0:
             categoria = "Jogador Normal ✅"
-        elif human_pct >= 50:
-            categoria = "Jogador Suspeito 🚨"
-        elif human_pct >= 30.01:
+        elif human_pct >= 50.0:
+            categoria = "Suspeito 🚨"
+        elif human_pct >= 30.0:
             categoria = "Possível Cheater ⚠️"
-        elif human_pct > 0.00:
-            categoria = "Sus 30-50% 🚨"
         else:
             categoria = "Cheater 💀"
 
