@@ -104,7 +104,7 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
     api_platform = plataforma
     base_url = "https://api.gametools.network/bf6/stats/?categories=multiplayer&raw=false&format_values=true&seperation=false&skip_battlelog=true"
 
-    await ctx.respond(f'<a:buscabf6:1485382186902229002> Buscando KD **Redsec** de **{gamertag}** ({plataforma})... *Pode demorar até 1 minuto.*')
+    await ctx.respond(f'<a:buscabf6:1485382186902229002> Buscando KD **Redsec** de **{gamertag}** ({plataforma})...\n'f'*Pode demorar até 1 minuto.*')
 
     try:
         session = requests.Session()
@@ -305,7 +305,7 @@ async def hc(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
     api_platform = plataforma
     base_url = "https://api.gametools.network/bf6/stats/?categories=multiplayer&raw=false&format_values=true&seperation=false&skip_battlelog=true"
 
-    await ctx.respond(f'<a:buscabf6:1485382186902229002> Consultando human% de **{gamertag}** ({plataforma})... *Pode demorar até 1 minuto.*')
+    await ctx.respond(f'<a:buscabf6:1485382186902229002> Consultando human% de **{gamertag}** ({plataforma})...\n'f'*Pode demorar até 1 minuto.*')
 
     try:
         session = requests.Session()
