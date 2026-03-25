@@ -10,9 +10,12 @@ primary_region = 'gru'
   processes = ['app']
 
 [[vm]]
-  memory = '256mb'
-  cpus = 1
+  size = "shared-cpu-1x"
   memory_mb = 256
 
 [build]
   dockerfile = "Dockerfile"
+
+[[mounts]]
+  source = "data"
+  destination = "/data"

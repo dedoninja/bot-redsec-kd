@@ -1,15 +1,17 @@
 import discord
-from discord import Bot
 from discord.ext import commands
+from discord.ui import Button, View, Modal, InputText
 import requests
 import os
+import json
+import asyncio
+from datetime import datetime
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
 # ================== FLASK DUMMY ==================
-from flask import Flask, Response, redirect
+from flask import Flask, redirect
 from threading import Thread
-import requests
 
 app = Flask(__name__)
 
@@ -17,13 +19,8 @@ GITHUB_PAGE_URL = "https://dedoninja.github.io/bot-redsec-kd/"
 
 @app.route('/')
 def home():
-    try:
-        resp = requests.get(GITHUB_PAGE_URL, timeout=10)
-        return Response(resp.text, content_type='text/html')
-    except Exception as e:
-        return f"Erro ao carregar página: {str(e)}"
+    return redirect(GITHUB_PAGE_URL)
 
-# FAVICON (resolve o 404)
 @app.route('/favicon.ico')
 def favicon():
     return redirect("https://cdn.discordapp.com/app-icons/1477325845277184112/6a7d1d2360e2cfcb656f221e6b00f908.png")
@@ -34,59 +31,506 @@ def run_flask():
 Thread(target=run_flask, daemon=True).start()
 
 # ==================== CONFIGS ====================
-TOKEN = os.getenv('TOKEN')  # Token do ambiente (Fly.io)
+TOKEN = os.getenv('TOKEN')
 
-SERVER_ID = 405506950562840577
+SERVER_ID           = 405506950562840577
+REGISTER_CHANNEL_ID = 1477367625502818586
+BOT_SPAM_CHANNEL_ID = 869818537793966090
 
 ROLE_KD2 = 1477322781774450868
 ROLE_KD3 = 1477322769825005599
 ROLE_KD4 = 1477322732201971945
 ROLE_KD5 = 1477322675612553296
-
 KD_ROLES = [ROLE_KD2, ROLE_KD3, ROLE_KD4, ROLE_KD5]
 
-ROLE_SUSPEITO       = 1483271684722131025
-ROLE_SUSPEITO_PLUS  = 1483271744713130147
-ROLE_CHEATER        = 1483272069042147389
-
-SUSPEITA_ROLES = [ROLE_SUSPEITO, ROLE_SUSPEITO_PLUS, ROLE_CHEATER]
+ROLE_SUSPEITO      = 1483271684722131025
+ROLE_SUSPEITO_PLUS = 1483271744713130147
+ROLE_CHEATER       = 1483272069042147389
+SUSPEITA_ROLES     = [ROLE_SUSPEITO, ROLE_SUSPEITO_PLUS, ROLE_CHEATER]
 
 ADM_CHAT_CHANNEL_ID = 405658596051779584
-STAFF_ROLE_ID = 472110979790929922
+STAFF_ROLE_ID       = 472110979790929922
 
-PLATFORMS = {
-    'pc': 'pc',
-    'psn': 'psn',
-    'xbox': 'xbox'
-}
-
-GIF_EA_ID = "https://i.imgur.com/8hmECSV.gif"
+GIF_EA_ID    = "https://i.imgur.com/8hmECSV.gif"
 GIF_DataShare = "https://i.imgur.com/2Qp2qAI.gif"
 
+BASE_STATS_URL = (
+    "https://api.gametools.network/bf6/stats/"
+    "?categories=multiplayer&raw=false&format_values=true"
+    "&seperation=false&skip_battlelog=true"
+)
+
+# ================== BANCO DE DADOS (JSON) ==================
+DATA_DIR  = "/data" if os.path.exists("/data") else os.path.join(os.path.dirname(__file__), "data")
+DATA_FILE = os.path.join(DATA_DIR, "users.json")
+
+def load_users() -> dict:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    if not os.path.exists(DATA_FILE):
+        return {}
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[ERRO] Falha ao carregar users.json: {e}")
+        return {}
+
+def save_users(users: dict):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, ensure_ascii=False, indent=2)
+
+# ==================== BOT ====================
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
 bot = discord.Bot(intents=intents)
 
+# ================== HELPERS DE API ==================
+def make_session() -> requests.Session:
+    session = requests.Session()
+    retries = Retry(total=1, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    return session
+
+def fetch_stats(gamertag: str, platform: str) -> dict | None:
+    """
+    Busca stats com fallback automático:
+    1. Tenta pelo nome + plataforma
+    2. Se KD vier zerado ou Redsec não encontrado, busca personaId/nucleusId via /bf6/player
+    3. Refaz a busca de stats com os IDs corretos (prioriza cem_ea_id, depois steam/origin)
+    Retorna o JSON de stats ou None em caso de falha total.
+    """
+    session = make_session()
+
+    # --- Tentativa 1: pelo nome + plataforma ---
+    try:
+        url = f"{BASE_STATS_URL}&name={gamertag}&platform={platform}"
+        resp = session.get(url, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            kd, _ = _extract_redsec_kd(data)
+            if kd > 0.0:
+                return data  # Sucesso direto
+            # KD zerado — tenta fallback
+        # Status != 200 — tenta fallback
+    except Exception:
+        pass
+
+    # --- Tentativa 2: busca personaId/nucleusId via /bf6/player ---
+    try:
+        player_resp = session.get(
+            f"https://api.gametools.network/bf6/player?name={gamertag}",
+            timeout=30
+        )
+        if player_resp.status_code != 200:
+            return None
+
+        personas = player_resp.json().get('results', [])
+        if not personas:
+            return None
+
+        persona_id = nucleus_id = None
+
+        # Prioridade 1: cem_ea_id
+        for p in personas:
+            if p.get('platformId') == 'cem_ea_id':
+                persona_id = p.get('personaId')
+                nucleus_id = p.get('nucleusId')
+                break
+
+        # Prioridade 2: steam ou origin
+        if not persona_id:
+            for p in personas:
+                if p.get('platformId') in ['steam', 'origin']:
+                    persona_id = p.get('personaId')
+                    nucleus_id = p.get('nucleusId')
+                    break
+
+        # Prioridade 3: qualquer persona disponível
+        if not persona_id:
+            persona_id = personas[0].get('personaId')
+            nucleus_id = personas[0].get('nucleusId')
+
+        if not persona_id or not nucleus_id:
+            return None
+
+        # --- Tentativa 3: stats pelo playerid + nucleus_id ---
+        fixed_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
+        resp2 = session.get(fixed_url, timeout=15)
+        if resp2.status_code == 200:
+            return resp2.json()
+
+    except Exception:
+        pass
+
+    return None
+
+def _extract_redsec_kd(data: dict) -> tuple:
+    """Auxiliar: extrai apenas o KD do Redsec para decisão de fallback."""
+    kd = 0.0
+    for group in data.get('gameModeGroups', []):
+        if group.get('gamemodeName') == 'Redsec':
+            try:
+                kd = float(group.get('killDeath', 0.0))
+            except (ValueError, TypeError):
+                kd = 0.0
+            return kd, True
+    for mode in data.get('gameModes', []):
+        if mode.get('gamemodeName') in ['Redsec Squad', 'Redsec Duo', 'Redsec Solo']:
+            try:
+                kd = float(mode.get('killDeath', 0.0))
+            except (ValueError, TypeError):
+                kd = 0.0
+            if kd > 0.0:
+                return kd, True
+    return 0.0, False
+
+def extract_kd_and_human(data: dict) -> tuple:
+    """Extrai KD do Redsec e human% do JSON de stats. Retorna (kd, human_pct)."""
+    kd, _ = _extract_redsec_kd(data)
+
+    try:
+        raw = data.get('humanPrecentage', '0') or '0'
+        human_pct = float(str(raw).replace('%', '').strip())
+    except (ValueError, AttributeError):
+        human_pct = 0.0
+
+    return kd, human_pct
+
+def classificar_suspeita(human_pct: float) -> tuple:
+    """
+    Retorna (role_id_ou_None, nome_interno, nome_publico).
+    nome_interno: valor real — usado no canal ADM e no /hc.
+    nome_publico: o que o jogador vê ao se registrar ou usar /kd.
+    Jogadores suspeitos veem apenas 'Suspeito', sem saber o nível exato.
+    """
+    if human_pct == 0.0:
+        return None, "Human% indisponível", "Human% indisponível"
+    elif human_pct >= 70.0:
+        return None, "Honesto", "Honesto"
+    elif human_pct >= 50.0:
+        return ROLE_SUSPEITO, "Sus 50-70%", "Suspeito"
+    elif human_pct >= 30.0:
+        return ROLE_SUSPEITO_PLUS, "Sus 30-50%", "Suspeito"
+    else:
+        return ROLE_CHEATER, "Cheater 0-30%", "Suspeito"
+
+async def apply_roles(member: discord.Member, guild: discord.Guild, kd: float, human_pct: float) -> dict:
+    """Aplica roles de KD e suspeita. Retorna dict com as mudanças."""
+    changes = {}
+
+    # --- Suspeita ---
+    for role_id in SUSPEITA_ROLES:
+        role = guild.get_role(role_id)
+        if role and role in member.roles:
+            await member.remove_roles(role)
+
+    suspeita_role_id, suspeita_interno, suspeita_publico = classificar_suspeita(human_pct)
+
+    if suspeita_role_id:
+        suspeita_role = guild.get_role(suspeita_role_id)
+        if suspeita_role:
+            await member.add_roles(suspeita_role)
+
+    changes['suspeita_interno'] = suspeita_interno
+    changes['suspeita_publico'] = suspeita_publico
+    changes['human_pct'] = human_pct
+
+    # --- KD ---
+    for role_id in KD_ROLES:
+        role = guild.get_role(role_id)
+        if role and role in member.roles:
+            await member.remove_roles(role)
+
+    kd_role_id = None
+    if 2.0 <= kd < 3.0:
+        kd_role_id, role_name = ROLE_KD2, 'Redsec KD2'
+    elif 3.0 <= kd < 4.0:
+        kd_role_id, role_name = ROLE_KD3, 'Redsec KD3'
+    elif 4.0 <= kd < 5.0:
+        kd_role_id, role_name = ROLE_KD4, 'Redsec KD4'
+    elif kd >= 5.0:
+        kd_role_id, role_name = ROLE_KD5, 'Redsec KD5+'
+    else:
+        role_name = 'Nenhuma (KD abaixo de 2.0)'
+
+    if kd_role_id:
+        new_role = guild.get_role(kd_role_id)
+        if new_role:
+            await member.add_roles(new_role)
+
+    changes['kd'] = kd
+    changes['kd_role'] = role_name
+    return changes
+
+# ================== MODAL DE REGISTRO ==================
+class RegisterModal(Modal):
+    def __init__(self):
+        super().__init__(title="Registre sua conta EA")
+        self.add_item(InputText(
+            label="Qual é o seu ID EA?",
+            placeholder="Ex: Hinachiwar",
+            required=True,
+            max_length=64
+        ))
+        self.add_item(InputText(
+            label="Plataforma (pc, psn ou xbox)",
+            placeholder="pc",
+            required=True,
+            max_length=4
+        ))
+
+    async def callback(self, interaction: discord.Interaction):
+        gamertag     = self.children[0].value.strip()
+        platform_raw = self.children[1].value.strip().lower()
+
+        if platform_raw not in ['pc', 'psn', 'xbox']:
+            await interaction.response.send_message(
+                "❌ Plataforma inválida. Use **pc**, **psn** ou **xbox**.",
+                ephemeral=True
+            )
+            return
+
+        await interaction.response.send_message(
+            f"<a:buscabf6:1485382186902229002> Registrando **{gamertag}** ({platform_raw})... *Pode demorar até 1 minuto.*",
+            ephemeral=True
+        )
+
+        data = await asyncio.to_thread(fetch_stats, gamertag, platform_raw)
+
+        if data is None:
+            await interaction.followup.send(
+                f"❌ ID **{gamertag}** não encontrado na plataforma **{platform_raw}**.\n"
+                f"Verifique seu **ID da EA**. Como encontrar: {GIF_EA_ID}",
+                ephemeral=True
+            )
+            return
+
+        kd_val, human_pct = extract_kd_and_human(data)
+
+        if kd_val == 0.0:
+            await interaction.followup.send(
+                f"⚠️ **{gamertag}** ainda não tem partidas no **Redsec**.\n\n"
+                f"❌ **Seu nick NÃO foi salvo** e não receberá atualização automática de roles.\n"
+                f"Volte e se registre novamente após jogar partidas de Redsec!\n\n"
+                f"**O que fazer:**\n"
+                f"- Jogue partidas no modo Redsec.\n"
+                f"- Ative o 'Gameplay Data Sharing' no BF6. Veja como: <{GIF_DataShare}>\n"
+                f"- Certifique-se de usar o **ID da EA** correto. Veja como: {GIF_EA_ID}",
+                ephemeral=True
+            )
+            return
+
+        # Salva no JSON
+        users      = load_users()
+        discord_id = str(interaction.user.id)
+        old_entry  = users.get(discord_id)
+        users[discord_id] = {
+            "gamertag":      gamertag,
+            "platform":      platform_raw,
+            "registered_at": datetime.utcnow().isoformat()
+        }
+        save_users(users)
+
+        # Aplica roles
+        guild = bot.get_guild(SERVER_ID)
+        changes = {'kd_role': '?', 'suspeita_interno': '?', 'suspeita_publico': '?'}
+        if guild:
+            member = guild.get_member(interaction.user.id)
+            if member:
+                changes = await apply_roles(member, guild, kd_val, human_pct)
+
+                # Avisa ADM com valor real
+                if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
+                    adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
+                    if adm_channel:
+                        staff_role = guild.get_role(STAFF_ROLE_ID)
+                        mention = staff_role.mention if staff_role else "Staff"
+                        await adm_channel.send(
+                            f"{mention} Suspeita detectada no **registro**:\n"
+                            f"Usuário: {member.mention} (ID: {member.id})\n"
+                            f"Gamertag: **{gamertag}** ({platform_raw})\n"
+                            f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**"
+                        )
+
+        action = "atualizado" if old_entry else "registrado"
+        # Mostra ao jogador apenas o status público (sem % real se for suspeito)
+        await interaction.followup.send(
+            f"✅ Nick **{action}** com sucesso!\n"
+            f"Gamertag: **{gamertag}** ({platform_raw})\n"
+            f"KD Redsec: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
+            f"Status: **{changes['suspeita_publico']}**",
+            ephemeral=True
+        )
+
+# ================== BOTAO DE REGISTRO ==================
+class RegisterView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="⭕ Registre-se aqui!", style=discord.ButtonStyle.primary, custom_id="register_button")
+    async def register_button(self, button: Button, interaction: discord.Interaction):
+        await interaction.response.send_modal(RegisterModal())
+
+# ================== EVENTOS ==================
 @bot.event
 async def on_ready():
-    print(f'{bot.user} online! Use /kd ou /hc')
+    print(f'{bot.user} online!')
+    bot.add_view(RegisterView())
     try:
         await bot.sync_commands()
-        print('Comandos slash sincronizados com sucesso.')
+        print('Comandos slash sincronizados.')
     except Exception as e:
         print(f'Erro ao sincronizar comandos: {e}')
 
+    bot.loop.create_task(auto_update_loop())
+
+# ================== ATUALIZACAO AUTOMATICA (24H) ==================
+async def auto_update_loop():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        try:
+            await asyncio.sleep(24 * 60 * 60)
+            await run_auto_update()
+        except Exception as e:
+            print(f"[AUTO-UPDATE] Erro no loop: {e}")
+
+async def run_auto_update():
+    print(f"[AUTO-UPDATE] Iniciando - {datetime.utcnow().isoformat()}")
+    guild = bot.get_guild(SERVER_ID)
+    if not guild:
+        print("[AUTO-UPDATE] Servidor não encontrado.")
+        return
+
+    adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
+    staff_role  = guild.get_role(STAFF_ROLE_ID)
+    users       = load_users()
+
+    if not users:
+        print("[AUTO-UPDATE] Nenhum usuário registrado.")
+        return
+
+    total   = len(users)
+    updated = 0
+    failed  = 0
+    alerts  = []
+
+    for discord_id, info in users.items():
+        gamertag = info.get('gamertag')
+        platform = info.get('platform', 'pc')
+
+        try:
+            member = guild.get_member(int(discord_id))
+            if not member:
+                print(f"[AUTO-UPDATE] Membro {discord_id} não está no servidor, pulando.")
+                continue
+
+            old_kd_roles      = [r for r in member.roles if r.id in KD_ROLES]
+            old_suspeita_roles = [r for r in member.roles if r.id in SUSPEITA_ROLES]
+
+            data = await asyncio.to_thread(fetch_stats, gamertag, platform)
+
+            if data is None:
+                print(f"[AUTO-UPDATE] Falha na API para {gamertag}, mantendo roles.")
+                failed += 1
+                continue
+
+            kd_val, human_pct = extract_kd_and_human(data)
+
+            if kd_val == 0.0:
+                print(f"[AUTO-UPDATE] {gamertag} sem stats no Redsec, mantendo roles.")
+                failed += 1
+                continue
+
+            changes = await apply_roles(member, guild, kd_val, human_pct)
+            updated += 1
+
+            new_kd_roles      = [r for r in member.roles if r.id in KD_ROLES]
+            new_suspeita_roles = [r for r in member.roles if r.id in SUSPEITA_ROLES]
+            kd_changed        = set(r.id for r in old_kd_roles) != set(r.id for r in new_kd_roles)
+            suspeita_changed  = set(r.id for r in old_suspeita_roles) != set(r.id for r in new_suspeita_roles)
+            is_sus            = changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]
+
+            if kd_changed or suspeita_changed or is_sus:
+                old_kd_name = old_kd_roles[0].name if old_kd_roles else "Nenhuma"
+                alerts.append(
+                    f"- {member.mention} (`{gamertag}`) | "
+                    f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** (antes: {old_kd_name}) | "
+                    f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**"
+                )
+
+            await asyncio.sleep(5)
+
+        except Exception as e:
+            print(f"[AUTO-UPDATE] Erro ao processar {discord_id}: {e}")
+            failed += 1
+            continue
+
+    if adm_channel:
+        mention = staff_role.mention if staff_role else ""
+        summary = (
+            f"{mention} **Atualização automática concluída!**\n"
+            f"Total registrados: **{total}** | Atualizados: **{updated}** | Falhas (roles mantidas): **{failed}**\n"
+        )
+        if alerts:
+            summary += f"\n**Mudanças detectadas ({len(alerts)}):**\n" + "\n".join(alerts[:20])
+            if len(alerts) > 20:
+                summary += f"\n*...e mais {len(alerts) - 20} mudanças.*"
+        else:
+            summary += "\nNenhuma mudança de role detectada."
+
+        await adm_channel.send(summary)
+
+    print(f"[AUTO-UPDATE] Concluído. Atualizados: {updated} | Falhas: {failed}")
+
+# ==================== COMANDOS ====================
+
+@bot.slash_command(name="generate_register", description="[ADMIN] Envia o painel de registro no canal fixo")
+@discord.default_permissions(administrator=True)
+async def generate_register(ctx: discord.ApplicationContext):
+    channel = bot.get_channel(REGISTER_CHANNEL_ID)
+    if not channel:
+        await ctx.respond("❌ Canal de registro não encontrado. Verifique o REGISTER_CHANNEL_ID no bot.", ephemeral=True)
+        return
+
+    spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
+    spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
+
+    embed = discord.Embed(
+        title="Registre-se com sua conta EA para obter a role baseada no seu KD.",
+        description=(
+            f"Clique no botão abaixo, informe seu **ID da EA** e a **plataforma** para receber sua role automaticamente!\n\n"
+            f"**Como encontrar seu ID da EA?** Veja o GIF abaixo.\n\n"
+            f"Para usar os comandos manuais `/kd` e `/hc`, acesse {spam_mention}.\n"
+            f"Dúvidas? Use `/ajuda`."
+        ),
+        color=discord.Color.blue()
+    )
+    embed.set_image(url=GIF_EA_ID)
+
+    await channel.send(embed=embed, view=RegisterView())
+    await ctx.respond(f"✅ Painel de registro enviado em {channel.mention}!", ephemeral=True)
+
+@bot.slash_command(name="force_update", description="[ADMIN] Força a atualização de todos os registrados agora")
+@discord.default_permissions(administrator=True)
+async def force_update(ctx: discord.ApplicationContext):
+    await ctx.respond("🔄 Atualização forçada iniciada! Acompanhe o canal ADM.", ephemeral=True)
+    await run_auto_update()
+
 @bot.slash_command(name="ajuda", description="Mostra como usar o bot")
 async def ajuda(ctx: discord.ApplicationContext):
+    spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
+    spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
+
     embed = discord.Embed(
         title="Como usar o bot de KD Redsec",
         description=(
-            "Use os comandos slash **/kd** ou **/hc** (mais fáceis!)\n\n"
-            "**/kd** → busca seu KD no Redsec e atribui role\n"
-            "**/hc** → consulta % de humanidade (possíveis cheaters)\n\n"
-            "Selecione a plataforma no menu dropdown (pc, psn ou xbox).\n\n"
+            "Use o botão **Registre-se aqui!** no canal de registro para vincular seu EA ID!\n\n"
+            "Após registrar, o bot atualiza suas roles automaticamente a cada **24 horas**.\n\n"
+            f"**/kd** → busca KD manualmente (use em {spam_mention})\n"
+            f"**/hc** → consulta % de humanidade (use em {spam_mention})\n\n"
             "**Como pegar seu ID da EA?** Veja o GIF abaixo!\n\n"
             "Qualquer dúvida, chama a staff!"
         ),
@@ -97,290 +541,119 @@ async def ajuda(ctx: discord.ApplicationContext):
 
 @bot.slash_command(name="kd", description="Busca seu KD no Redsec e atribui role")
 @discord.option("gamertag", description="Seu ID da EA", required=True)
-@discord.option("plataforma", description="Plataforma", required=True, choices=["pc", "psn", "xbox"],)
+@discord.option("plataforma", description="Plataforma", required=True, choices=["pc", "psn", "xbox"])
 async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
-    await ctx.defer()
+    spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
+    spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
 
-    api_platform = plataforma
-    base_url = "https://api.gametools.network/bf6/stats/?categories=multiplayer&raw=false&format_values=true&seperation=false&skip_battlelog=true"
-
-    await ctx.respond(f'<a:buscabf6:1485382186902229002> Buscando KD **Redsec** de **{gamertag}** ({plataforma})...\n'f'*Pode demorar até 1 minuto.*')
-
-    try:
-        session = requests.Session()
-        retries = Retry(total=1, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
-        session.mount('https://', HTTPAdapter(max_retries=retries))
-
-        url = f"{base_url}&name={gamertag}&platform={api_platform}"
-        resp = session.get(url, timeout=45)
-
-        if resp.status_code != 200:
-            await ctx.respond(f'❌ ID **{gamertag}** não encontrado na plataforma **{plataforma}**.\n• Verifique o **ID da EA**.')
-            return
-
-        data = resp.json()
-
-        kd = 0.0
-        found_mode = False
-
-        for group in data.get('gameModeGroups', []):
-            if group.get('gamemodeName') == 'Redsec':
-                kd = float(group.get('killDeath', 0.0))
-                found_mode = True
-                break
-
-        if not found_mode:
-            for mode in data.get('gameModes', []):
-                if mode.get('gamemodeName') == 'Redsec':
-                    kd = float(mode.get('killDeath', 0.0))
-                    found_mode = True
-                    break
-
-        if not found_mode or kd == 0.0:
-            print(f"[DEBUG] Fallback ativado para {gamertag} - buscando personaId/nucleusId")
-            player_url = f"https://api.gametools.network/bf6/player?name={gamertag}"
-            player_resp = session.get(player_url, timeout=45)
-
-            if player_resp.status_code == 200:
-                player_data = player_resp.json()
-                persona_id = None
-                nucleus_id = None
-
-                print("[DEBUG] Personas encontradas:")
-                personas = player_data.get('results', [])
-                if not personas:
-                    print("[DEBUG] Nenhuma persona encontrada! JSON completo:", player_data)
-                for persona in personas:
-                    pid = persona.get('platformId')
-                    print(f"  - platformId: {pid}, personaId: {persona.get('personaId')}, nucleusId: {persona.get('nucleusId')}")
-
-                for persona in personas:
-                    if persona.get('platformId') == 'cem_ea_id':
-                        persona_id = persona.get('personaId')
-                        nucleus_id = persona.get('nucleusId')
-                        print(f"[DEBUG] Prioridade cem_ea_id encontrado: personaId={persona_id}, nucleusId={nucleus_id}")
-                        break
-
-                if not persona_id:
-                    for persona in personas:
-                        pid = persona.get('platformId')
-                        if pid in ['steam', 'origin']:
-                            persona_id = persona.get('personaId')
-                            nucleus_id = persona.get('nucleusId')
-                            print(f"[DEBUG] Fallback {pid} encontrado: personaId={persona_id}, nucleusId={nucleus_id}")
-                            break
-
-                if persona_id and nucleus_id:
-                    fixed_url = f"{base_url}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={api_platform}"
-                    resp = session.get(fixed_url, timeout=45)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        print(f"[DEBUG] Segunda tentativa bem-sucedida com personaId={persona_id}, nucleusId={nucleus_id}")
-
-                        kd = 0.0
-                        found_mode = False
-
-                        for group in data.get('gameModeGroups', []):
-                            if group.get('gamemodeName') == 'Redsec':
-                                kd = float(group.get('killDeath', 0.0))
-                                found_mode = True
-                                break
-
-                        if not found_mode:
-                            for mode in data.get('gameModes', []):
-                                if mode.get('gamemodeName') == 'Redsec':
-                                    kd = float(mode.get('killDeath', 0.0))
-                                    found_mode = True
-                                    break
-
-        if not found_mode or kd == 0.0:
-            await ctx.respond(
-                f'⚠️ **{gamertag}** sem stats no **Redsec** ainda.\n'
-                f'• Jogue mais partidas de Redsec.\n'
-                f'• Ative "Gameplay Data Sharing" no BF6. Veja como: <{GIF_DataShare}>\n'
-                f'• Use o **ID da EA** correto.\n'
-                f'• Como pegar seu ID da EA? Veja aqui: {GIF_EA_ID}'
-            )
-            return
-
-        human_pct_str = data.get('humanPrecentage', '0')
-        human_pct = float(human_pct_str.replace('%', ''))
-
-        member = ctx.author
-        guild = bot.get_guild(SERVER_ID)
-
-        for role_id in SUSPEITA_ROLES:
-            role = guild.get_role(role_id)
-            if role and role in member.roles:
-                await member.remove_roles(role)
-
-        suspeita_role = None
-        suspeita_nome = "Honesto"
-
-        if human_pct == 0.0:
-            suspeita_nome = "Human% não disponível ou perfil sem dados suficientes (0.00%)"
-
-        elif human_pct >= 70.0:
-            suspeita_nome = "Honesto"
-
-        elif human_pct >= 50.0:
-            suspeita_role = guild.get_role(ROLE_SUSPEITO)
-            suspeita_nome = "Sus 50-70%"
-
-        elif human_pct >= 30.0:
-            suspeita_role = guild.get_role(ROLE_SUSPEITO_PLUS)
-            suspeita_nome = "Sus 30-50%"
-
-        else:
-            suspeita_role = guild.get_role(ROLE_CHEATER)
-            suspeita_nome = "Cheater 0-30%"
-
-        if suspeita_role:
-            await member.add_roles(suspeita_role)
-
-            adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
-            if adm_channel:
-                staff_role = guild.get_role(STAFF_ROLE_ID)
-                if staff_role:
-                    await adm_channel.send(
-                        f"{staff_role.mention} Suspeita detectada:\n"
-                        f"Usuário: {member.mention} (ID: {member.id})\n"
-                        f"Gamertag: **{gamertag}**\n"
-                        f"Human%: **{human_pct:.2f}%** → **{suspeita_nome}**"
-                    )
-
-        if kd == 0.0:
-            await ctx.respond(
-                f'⚠️ **{gamertag}** sem stats no **Redsec** ainda.\n'
-                f'• Jogue mais partidas de Redsec.\n'
-                f'• Ative "Gameplay Data Sharing" no BF6. Veja como: <{GIF_DataShare}>\n'
-                f'• Use o **ID da EA** correto.\n'
-                f'• Como pegar seu ID da EA? Veja aqui: {GIF_EA_ID}'
-            )
-            return
-
-        for role_id in KD_ROLES:
-            role = guild.get_role(role_id)
-            if role and role in member.roles:
-                await member.remove_roles(role)
-
-        if 2.0 <= kd < 3.0:
-            new_role_id = ROLE_KD2
-            role_name = 'Redsec KD2'
-        elif 3.0 <= kd < 4.0:
-            new_role_id = ROLE_KD3
-            role_name = 'Redsec KD3'
-        elif 4.0 <= kd < 5.0:
-            new_role_id = ROLE_KD4
-            role_name = 'Redsec KD4'
-        elif kd >= 5.0:
-            new_role_id = ROLE_KD5
-            role_name = 'Redsec KD5+'
-        else:
-            await ctx.respond(f'📉 KD **{kd:.2f}** no Redsec (abaixo de 2.0). Nenhuma role atribuída.')
-            return
-
-        new_role = guild.get_role(new_role_id)
-        if not new_role:
-            await ctx.respond('❌ Erro interno: role não encontrada. Contate a staff!')
-            return
-
-        await member.add_roles(new_role)
-
+    if ctx.channel_id != BOT_SPAM_CHANNEL_ID:
         await ctx.respond(
-            f'✅ KD **Redsec** atual: **{kd:.2f}**\n'
-            f'Role atribuída: **{role_name}**\n'
-            f'Você já pode criar ou entrar salas restritas ao seu KD. 🔥'
+            f"⚠️ Por favor, use os comandos de bot em {spam_mention}.",
+            ephemeral=True
         )
+        return
 
-    except Exception as e:
-        await ctx.respond(f'❌ Erro ao buscar stats: {str(e)}\nTente novamente em alguns minutos.')
+    await ctx.defer()
+    await ctx.respond(
+        f"<a:buscabf6:1485382186902229002> Buscando KD **Redsec** de **{gamertag}** ({plataforma})...\n"
+        f"*Pode demorar até 1 minuto.*"
+    )
 
-@bot.slash_command(name="hc", description="Consulta % de humanidade (possíveis cheaters)")
+    data = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
+
+    if data is None:
+        await ctx.followup.send(
+            f"❌ ID **{gamertag}** não encontrado na plataforma **{plataforma}**.\n"
+            f"Verifique seu **ID da EA**. Como encontrar: {GIF_EA_ID}"
+        )
+        return
+
+    kd_val, human_pct = extract_kd_and_human(data)
+
+    if kd_val == 0.0:
+        await ctx.followup.send(
+            f"⚠️ **{gamertag}** sem stats no **Redsec** ainda.\n"
+            f"- Jogue mais partidas de Redsec.\n"
+            f"- Ative o 'Gameplay Data Sharing' no BF6. Veja como: <{GIF_DataShare}>\n"
+            f"- Use o **ID da EA** correto. Veja aqui: {GIF_EA_ID}"
+        )
+        return
+
+    guild = bot.get_guild(SERVER_ID)
+    if not guild:
+        await ctx.followup.send("❌ Erro interno: servidor não encontrado. Contate a staff!")
+        return
+
+    changes = await apply_roles(ctx.author, guild, kd_val, human_pct)
+
+    # Avisa ADM com valor real
+    if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
+        adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
+        if adm_channel:
+            staff_role = guild.get_role(STAFF_ROLE_ID)
+            mention = staff_role.mention if staff_role else "Staff"
+            await adm_channel.send(
+                f"{mention} Suspeita detectada via **/kd**:\n"
+                f"Usuário: {ctx.author.mention} (ID: {ctx.author.id})\n"
+                f"Gamertag: **{gamertag}** ({plataforma})\n"
+                f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**"
+            )
+
+    # Mostra ao jogador apenas o status público
+    register_channel = bot.get_channel(REGISTER_CHANNEL_ID)
+    register_mention = register_channel.mention if register_channel else "canal de registro"
+    await ctx.followup.send(
+        f"✅ KD **Redsec** atual: **{kd_val:.2f}**\n"
+        f"Role atribuída: **{changes['kd_role']}**\n"
+        f"Status: **{changes['suspeita_publico']}**\n"
+        f"Você já pode criar ou entrar em salas restritas ao seu KD.\n\n"
+        f"💡 Para ter sua role atualizada automaticamente a cada 24h, registre-se em {register_mention}."
+    )
+
+@bot.slash_command(name="hc", description="Consulta % de humanidade de um jogador")
 @discord.option("gamertag", description="ID da EA", required=True)
 @discord.option("plataforma", description="Plataforma", required=True, choices=["pc", "psn", "xbox"])
 async def hc(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
+    spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
+    spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
+
+    if ctx.channel_id != BOT_SPAM_CHANNEL_ID:
+        await ctx.respond(
+            f"⚠️ Por favor, use os comandos de bot em {spam_mention}.",
+            ephemeral=True
+        )
+        return
+
     await ctx.defer()
+    await ctx.respond(
+        f"<a:buscabf6:1485382186902229002> Consultando human% de **{gamertag}** ({plataforma})...\n"
+        f"*Pode demorar até 1 minuto.*"
+    )
 
-    api_platform = plataforma
-    base_url = "https://api.gametools.network/bf6/stats/?categories=multiplayer&raw=false&format_values=true&seperation=false&skip_battlelog=true"
+    data = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
 
-    await ctx.respond(f'<a:buscabf6:1485382186902229002> Consultando human% de **{gamertag}** ({plataforma})...\n'f'*Pode demorar até 1 minuto.*')
+    if data is None:
+        await ctx.followup.send(
+            f"❌ ID **{gamertag}** não encontrado na plataforma **{plataforma}**.\n"
+            f"Verifique seu **ID da EA**. Como encontrar: {GIF_EA_ID}"
+        )
+        return
 
-    try:
-        session = requests.Session()
-        retries = Retry(total=1, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
-        session.mount('https://', HTTPAdapter(max_retries=retries))
+    _, human_pct = extract_kd_and_human(data)
 
-        url = f"{base_url}&name={gamertag}&platform={api_platform}"
-        resp = session.get(url, timeout=45)
+    # /hc sempre mostra o valor REAL para todos
+    if human_pct == 0.0:
+        categoria = "Human% não disponível ou perfil sem dados suficientes (0.00%)"
+    elif human_pct >= 70.0:
+        categoria = "Jogador Normal ✅"
+    elif human_pct >= 50.0:
+        categoria = "Suspeito 🚨"
+    elif human_pct >= 30.0:
+        categoria = "Possível Cheater ⚠️"
+    else:
+        categoria = "Cheater 💀"
 
-        if resp.status_code != 200:
-            await ctx.respond(f'❌ ID **{gamertag}** não encontrado na plataforma **{plataforma}**.\n• Verifique o **ID da EA**.')
-            return
-
-        data = resp.json()
-
-        human_pct_str = data.get('humanPrecentage', '0')
-        human_pct = float(human_pct_str.replace('%', ''))
-
-        if human_pct == 0.0:
-            print(f"[DEBUG] Fallback ativado no /hc para {gamertag}")
-            player_url = f"https://api.gametools.network/bf6/player?name={gamertag}"
-            player_resp = session.get(player_url, timeout=45)
-
-            if player_resp.status_code == 200:
-                player_data = player_resp.json()
-                persona_id = None
-                nucleus_id = None
-
-                personas = player_data.get('results', [])
-                if not personas:
-                    print("[DEBUG] Nenhuma persona encontrada no /hc! JSON:", player_data)
-
-                for persona in personas:
-                    if persona.get('platformId') == 'cem_ea_id':
-                        persona_id = persona.get('personaId')
-                        nucleus_id = persona.get('nucleusId')
-                        print(f"[DEBUG] Prioridade cem_ea_id no /hc: personaId={persona_id}, nucleusId={nucleus_id}")
-                        break
-
-                if not persona_id:
-                    for persona in personas:
-                        pid = persona.get('platformId')
-                        if pid in ['steam', 'origin']:
-                            persona_id = persona.get('personaId')
-                            nucleus_id = persona.get('nucleusId')
-                            print(f"[DEBUG] Fallback {pid} no /hc: personaId={persona_id}, nucleusId={nucleus_id}")
-                            break
-
-                if persona_id and nucleus_id:
-                    fixed_url = f"{base_url}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={api_platform}"
-                    resp = session.get(fixed_url, timeout=45)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        print(f"[DEBUG] Segunda tentativa bem-sucedida no /hc")
-
-                        human_pct_str = data.get('humanPrecentage', '0')
-                        human_pct = float(human_pct_str.replace('%', ''))
-
-        float(human_pct_str.replace('%', '').strip())
-
-        if human_pct == 0.0:
-            categoria = "Human% não disponível ou perfil sem dados suficientes (0.00%)"
-        elif human_pct >= 70.0:
-            categoria = "Jogador Normal ✅"
-        elif human_pct >= 50.0:
-            categoria = "Suspeito 🚨"
-        elif human_pct >= 30.0:
-            categoria = "Possível Cheater ⚠️"
-        else:
-            categoria = "Cheater 💀"
-
-        await ctx.respond(f'Human% de **{gamertag}**: **{human_pct:.2f}%** → **{categoria}**')
-
-    except Exception as e:
-        await ctx.respond(f'❌ Erro ao consultar human%: {str(e)}\nVerifique o ID da EA.')
+    await ctx.followup.send(f"🔍 Human% de **{gamertag}**: **{human_pct:.2f}%** → **{categoria}**")
 
 @bot.event
 async def on_command_error(ctx, error):
