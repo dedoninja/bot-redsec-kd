@@ -1,43 +1,67 @@
 <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Bot Redsec BFBR</title>
-        
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Redsec BFBR</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-        <style>
-            body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #0f0f0f; color: #ffffff; text-align: center; }
-            .container { max-width: 900px; margin: 0 auto; padding: 20px; }
-            img.banner { width: 100%; max-width: 680px; height: auto; max-height: 240px; object-fit: contain; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.7); margin-bottom: 20px; }
-            h1 { margin: 20px 0 10px; font-size: 2.8em; color: #00cc00; text-shadow: 0 0 10px #00ff00; }
-            p { font-size: 1.3em; margin: 20px 0; }
-            .discord-btn { display: inline-flex; align-items: center; background-color: #5865F2; color: white; padding: 15px 35px; font-size: 1.4em; border-radius: 8px; text-decoration: none; margin: 20px 0; transition: background-color 0.3s; }
-            .discord-btn:hover { background-color: #4752C4; }
-            .discord-icon { margin-right: 12px; font-size: 1.5em; }
-            .socials { margin-top: 50px; padding-top: 30px; border-top: 1px solid #333; font-size: 1.1em; }
-            .socials a { color: #ffffff; text-decoration: none; margin: 0 15px; transition: color 0.3s; }
-            .socials a:hover { color: #00cc00; }
-            .socials i { margin-right: 8px; font-size: 1.3em; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <img src="https://cdn.discordapp.com/banners/1477325845277184112/97855b94130d3f0f0e8432f601b0d558?size=1024" alt="Banner Bot Redsec BFBR" class="banner">
-            <h1>Bot Redsec BFBR online!</h1>
-            <p>Entre no Discord oficial e junte-se à comunidade:</p>
-            <a href="https://discord.gg/YUAkpKM" class="discord-btn" target="_blank">
-                <i class="fa-brands fa-discord discord-icon"></i> Entrar no Discord
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #0f0f0f; color: #ffffff; text-align: center; }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        img.banner { width: 100%; max-width: 680px; height: auto; max-height: 240px; object-fit: contain; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.7); margin-bottom: 20px; }
+        
+        /* Título atualizado: Mantém a cor verde, mas sem o brilho text-shadow */
+        h1 { margin: 20px 0 10px; font-size: 2.8em; color: #00cc00; text-shadow: none; }
+        
+        p { font-size: 1.3em; margin: 20px 0; }
+        
+        .btn-group { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin: 20px 0; }
+
+        .btn { display: inline-flex; align-items: center; color: white; padding: 15px 30px; font-size: 1.2em; border-radius: 8px; text-decoration: none; transition: transform 0.2s, background-color 0.3s; font-weight: bold; }
+        .btn:hover { transform: translateY(-2px); }
+        
+        .discord-btn { background-color: #5865F2; }
+        .discord-btn:hover { background-color: #4752C4; }
+        
+        /* Botão de Doação atualizado para Verde (estilo Spotify) */
+        .donate-btn { background-color: #1db954; }
+        .donate-btn:hover { background-color: #1ed760; }
+
+        .btn-icon { margin-right: 12px; font-size: 1.4em; }
+
+        .socials { margin-top: 50px; padding-top: 30px; border-top: 1px solid #333; font-size: 1.1em; }
+        .socials a { color: #ffffff; text-decoration: none; margin: 0 15px; transition: color 0.3s; }
+        .socials a:hover { color: #00cc00; }
+        .socials i { margin-right: 8px; font-size: 1.3em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="https://cdn.discordapp.com/banners/1477325845277184112/97855b94130d3f0f0e8432f601b0d558?size=1024" alt="Banner Bot Redsec BFBR" class="banner">
+        <h1>Bot Redsec BFBR online!</h1>
+        
+        <p>Entre no Discord oficial ou apoie o projeto</p>
+        
+        <div class="btn-group">
+            <a href="https://discord.gg/YUAkpKM" class="btn discord-btn" target="_blank">
+                <i class="fa-brands fa-discord btn-icon"></i> Entrar no Discord
             </a>
-            <div class="socials">
-                <p><strong>Site e redes sociais oficiais:</strong></p>
-                <a href="https://www.battlefieldbr.com/" target="_blank"><i class="fa-solid fa-globe"></i> Website</a> |
-                <a href="https://www.facebook.com/BattlefieldBR/" target="_blank"><i class="fa-brands fa-facebook"></i> Facebook</a> |
-                <a href="https://x.com/BattlefieldBR" target="_blank"><i class="fa-brands fa-x-twitter"></i> Twitter/X</a> |
-                <a href="https://www.youtube.com/BattlefieldBR" target="_blank"><i class="fa-brands fa-youtube"></i> YouTube</a> |
-                <a href="https://www.instagram.com/battlefield.br" target="_blank"><i class="fa-brands fa-instagram"></i> Instagram</a>
-            </div>
+
+            <a href="https://livepix.gg/dedoninja" class="btn donate-btn" target="_blank">
+                <i class="fa-solid fa-heart btn-icon"></i> Apoiar o Bot
+            </a>
         </div>
-    </body>
-    </html>
+
+        <div class="socials">
+            <p><strong>Site e redes sociais oficiais:</strong></p>
+            <a href="https://www.battlefieldbr.com/" target="_blank"><i class="fa-solid fa-globe"></i> Website</a> |
+            <a href="https://www.facebook.com/BattlefieldBR/" target="_blank"><i class="fa-brands fa-facebook"></i> Facebook</a> |
+            <a href="https://x.com/BattlefieldBR" target="_blank"><i class="fa-brands fa-x-twitter"></i> Twitter/X</a> |
+            <a href="https://www.youtube.com/BattlefieldBR" target="_blank"><i class="fa-brands fa-youtube"></i> YouTube</a> |
+            <a href="https://www.instagram.com/battlefield.br" target="_blank"><i class="fa-brands fa-instagram"></i> Instagram</a>
+        </div>
+    </div>
+</body>
+</html>

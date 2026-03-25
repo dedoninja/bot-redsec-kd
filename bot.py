@@ -5,7 +5,7 @@ import requests
 import os
 import json
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
@@ -34,7 +34,7 @@ Thread(target=run_flask, daemon=True).start()
 TOKEN = os.getenv('TOKEN')
 
 SERVER_ID           = 405506950562840577
-REGISTER_CHANNEL_ID = 1477367625502818586
+REGISTER_CHANNEL_ID = 1486425299502764105
 BOT_SPAM_CHANNEL_ID = 869818537793966090
 
 ROLE_KD2 = 1477322781774450868
@@ -49,7 +49,9 @@ ROLE_CHEATER       = 1483272069042147389
 SUSPEITA_ROLES     = [ROLE_SUSPEITO, ROLE_SUSPEITO_PLUS, ROLE_CHEATER]
 
 ADM_CHAT_CHANNEL_ID = 405658596051779584
+LOGS_CHANNEL_ID     = 405507830167371786
 STAFF_ROLE_ID       = 472110979790929922
+DEDO_USER_ID        = 84299190288523264
 
 GIF_EA_ID    = "https://i.imgur.com/8hmECSV.gif"
 GIF_DataShare = "https://i.imgur.com/2Qp2qAI.gif"
@@ -390,12 +392,23 @@ async def on_ready():
 # ================== ATUALIZACAO AUTOMATICA (24H) ==================
 async def auto_update_loop():
     await bot.wait_until_ready()
+    HORARIO_UPDATE = 4  # Hora de Brasília para rodar o update (04:00)
+    FUSO_BRASILIA  = timezone(timedelta(hours=-3))
+
     while not bot.is_closed():
         try:
-            await asyncio.sleep(24 * 60 * 60)
+            agora    = datetime.now(FUSO_BRASILIA)
+            # Calcula quantos segundos faltam para a próxima vez que chegar em HORARIO_UPDATE:00
+            proximo  = agora.replace(hour=HORARIO_UPDATE, minute=0, second=0, microsecond=0)
+            if agora >= proximo:
+                proximo += timedelta(days=1)  # Já passou hoje, agenda para amanhã
+            espera   = (proximo - agora).total_seconds()
+            print(f"[AUTO-UPDATE] Próximo update às {proximo.strftime('%d/%m/%Y %H:%M')} (Brasília). Aguardando {espera/3600:.1f}h.")
+            await asyncio.sleep(espera)
             await run_auto_update()
         except Exception as e:
             print(f"[AUTO-UPDATE] Erro no loop: {e}")
+            await asyncio.sleep(60)  # Espera 1 minuto e tenta calcular de novo
 
 async def run_auto_update():
     print(f"[AUTO-UPDATE] Iniciando - {datetime.utcnow().isoformat()}")
@@ -468,10 +481,12 @@ async def run_auto_update():
             failed += 1
             continue
 
-    if adm_channel:
-        mention = staff_role.mention if staff_role else ""
+    logs_channel = bot.get_channel(LOGS_CHANNEL_ID)
+    if logs_channel:
+        # Marca @Dedo apenas se houver falhas
+        dedo_mention = f"<@{DEDO_USER_ID}> " if failed > 0 else ""
         summary = (
-            f"{mention} **Atualização automática concluída!**\n"
+            f"{dedo_mention}**Atualização automática concluída!**\n"
             f"Total registrados: **{total}** | Atualizados: **{updated}** | Falhas (roles mantidas): **{failed}**\n"
         )
         if alerts:
@@ -481,7 +496,7 @@ async def run_auto_update():
         else:
             summary += "\nNenhuma mudança de role detectada."
 
-        await adm_channel.send(summary)
+        await logs_channel.send(summary)
 
     print(f"[AUTO-UPDATE] Concluído. Atualizados: {updated} | Falhas: {failed}")
 
@@ -504,7 +519,8 @@ async def generate_register(ctx: discord.ApplicationContext):
             f"Clique no botão abaixo, informe seu **ID da EA** e a **plataforma** para receber sua role automaticamente!\n\n"
             f"**Como encontrar seu ID da EA?** Veja o GIF abaixo.\n\n"
             f"Para usar os comandos manuais `/kd` e `/hc`, acesse {spam_mention}.\n"
-            f"Dúvidas? Use `/ajuda`."
+            f"Dúvidas? Use `/ajuda`.\n\n"
+            f"🟢 [Verificar se o bot está online](https://bot-redsec-kd.fly.dev/)"
         ),
         color=discord.Color.blue()
     )
@@ -516,7 +532,9 @@ async def generate_register(ctx: discord.ApplicationContext):
 @bot.slash_command(name="force_update", description="[ADMIN] Força a atualização de todos os registrados agora")
 @discord.default_permissions(administrator=True)
 async def force_update(ctx: discord.ApplicationContext):
-    await ctx.respond("🔄 Atualização forçada iniciada! Acompanhe o canal ADM.", ephemeral=True)
+    logs_channel = bot.get_channel(LOGS_CHANNEL_ID)
+    logs_mention = logs_channel.mention if logs_channel else f"<#{LOGS_CHANNEL_ID}>"
+    await ctx.respond(f"🔄 Atualização forçada iniciada! Acompanhe o resultado em {logs_mention}.", ephemeral=True)
     await run_auto_update()
 
 @bot.slash_command(name="ajuda", description="Mostra como usar o bot")
@@ -524,13 +542,18 @@ async def ajuda(ctx: discord.ApplicationContext):
     spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
     spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
 
+    register_channel = bot.get_channel(REGISTER_CHANNEL_ID)
+    register_mention = register_channel.mention if register_channel else f"<#{REGISTER_CHANNEL_ID}>"
+
     embed = discord.Embed(
         title="Como usar o bot de KD Redsec",
         description=(
-            "Use o botão **Registre-se aqui!** no canal de registro para vincular seu EA ID!\n\n"
+            f"Use o botão **⭕ Registre-se aqui!** em {register_mention} para vincular seu EA ID!\n"
             "Após registrar, o bot atualiza suas roles automaticamente a cada **24 horas**.\n\n"
-            f"**/kd** → busca KD manualmente (use em {spam_mention})\n"
-            f"**/hc** → consulta % de humanidade (use em {spam_mention})\n\n"
+            f"**Comandos manuais** (use em {spam_mention}):\n"
+            f"→ `/kd [SeuID] [plataforma]` — busca seu KD e atribui a role\n"
+            f"→ `/hc [IDdaEA] [plataforma]` — consulta a % de humanidade\n\n"
+            "**Plataformas válidas:** `pc` · `psn` · `xbox`\n\n"
             "**Como pegar seu ID da EA?** Veja o GIF abaixo!\n\n"
             "Qualquer dúvida, chama a staff!"
         ),
