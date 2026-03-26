@@ -417,6 +417,7 @@
             gap: 8px;
             flex-wrap: wrap;
             margin-bottom: 24px;
+            justify-content: center;
         }
 
         .platform-tag {
@@ -639,12 +640,12 @@
                 <div class="step-card">
                     <span class="step-num">// PASSO 01</span>
                     <div class="step-title">Registre-se</div>
-                    <div class="step-desc">No canal de registro do Discord, clique no botão ⭕ Registre-se aqui! e informe seu ID da EA e plataforma.</div>
+                    <div class="step-desc">No canal de registro do Discord, clique no botão <span style="display:inline-block;background:#5865F2;color:#fff;font-family:var(--mono);font-size:0.88em;padding:3px 10px;border-radius:3px;letter-spacing:0.05em;vertical-align:middle;">⭕ Registre-se aqui!</span> e informe seu ID da EA e plataforma.</div>
                 </div>
                 <div class="step-card">
                     <span class="step-num">// PASSO 02</span>
                     <div class="step-title">Receba sua role</div>
-                    <div class="step-desc">O bot busca seu KD no modo Redsec e atribui a role correspondente automaticamente.</div>
+                    <div class="step-desc">O bot busca seu KD no modo Redsec (média de todos os modos &mdash; solo, duo, squad, arena e gauntlet) e atribui a role correspondente automaticamente.</div>
                 </div>
                 <div class="step-card">
                     <span class="step-num">// PASSO 03</span>
@@ -753,7 +754,7 @@
             </table>
 
             <div class="warn-box">
-                <strong>⚠ Aviso:</strong> Os valores são calculados com base no histórico <strong>total</strong> do jogador (Multiplayer, Redsec, Portal e demais modos). O uso recente de cheats pode ser temporariamente amortizado por horas de jogo legítimo anterior. Jogadores que usam o Portal para farmar nível também podem apresentar porcentagens baixas mesmo jogando os outros modos honestamente.
+                <span style="color:#f0c040;"><strong><i class="fa-solid fa-triangle-exclamation"></i> Aviso:</strong></span> Os valores são calculados com base no <strong>histórico total</strong> do jogador (Multiplayer, Redsec, Portal e demais modos). O uso recente de cheats pode ser temporariamente amortizado por horas de jogo legítimo anterior. Jogadores que <strong>usam o Portal para farmar nível</strong> também podem apresentar porcentagens baixas mesmo jogando os outros modos honestamente.
             </div>
 
         </div>
@@ -783,7 +784,7 @@
 
         <!-- Footer -->
         <div class="footer">
-            <div>REDSEC BOT &mdash; BATTLEFIELD BR &copy; 2026 &mdash; TODOS OS DIREITOS RESERVADOS</div>
+            <div>REDSEC KD BOT &mdash; BATTLEFIELD BR &copy; 2026 &mdash; TODOS OS DIREITOS RESERVADOS</div>
             <div style="margin-top: 4px;">CRIADO POR <a href="https://discord.com/users/84299190288523264" target="_blank">DEDO_NINJA</a></div>
         </div>
 
