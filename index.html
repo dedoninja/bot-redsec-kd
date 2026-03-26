@@ -485,6 +485,25 @@
 
         .warn-box strong { color: rgba(255,255,255,0.7); }
 
+        .next-update-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 12px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 5px 13px;
+            font-family: var(--mono);
+            font-size: 0.68em;
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 0.06em;
+        }
+        .next-update-pill i {
+            color: var(--red);
+            font-size: 0.95em;
+        }
+
         /* ── Socials ── */
         .socials-section {
             width: 100%;
@@ -645,12 +664,13 @@
                 <div class="step-card">
                     <span class="step-num">// PASSO 02</span>
                     <div class="step-title">Receba sua role</div>
-                    <div class="step-desc">O bot busca seu KD no modo Redsec (média de todos os modos &mdash; solo, duo, squad, arena e gauntlet) e atribui a role correspondente automaticamente.</div>
+                    <div class="step-desc">O bot busca seu KD no modo Redsec (média de todos os modos &mdash; Solo, Duo, Squad, Arena e Gauntlet) e atribui a role correspondente automaticamente.</div>
                 </div>
                 <div class="step-card">
                     <span class="step-num">// PASSO 03</span>
                     <div class="step-title">Atualização automática</div>
                     <div class="step-desc">Seu KD é verificado todo dia às 04:00 (Brasília). A role é atualizada sem precisar fazer nada.</div>
+                    <div class="next-update-pill"><i class="fa-solid fa-arrows-rotate"></i> <span id="next-update">calculando...</span></div>
                 </div>
             </div>
 
@@ -663,19 +683,19 @@
 
             <div class="commands-block" style="margin-bottom: 24px;">
                 <div class="cmd-row">
-                    <span class="cmd-syntax"><span class="tag-ok">Redsec KD2</span></span>
+                    <span class="cmd-syntax"><span class="tag-ok"><i class="fa-solid fa-user"></i> Redsec KD2</span></span>
                     <span class="cmd-desc">KD entre 2.0 e 2.99 no modo Redsec</span>
                 </div>
                 <div class="cmd-row">
-                    <span class="cmd-syntax"><span class="tag-ok">Redsec KD3</span></span>
+                    <span class="cmd-syntax"><span class="tag-ok"><i class="fa-solid fa-user"></i> Redsec KD3</span></span>
                     <span class="cmd-desc">KD entre 3.0 e 3.99 no modo Redsec</span>
                 </div>
                 <div class="cmd-row">
-                    <span class="cmd-syntax"><span class="tag-ok">Redsec KD4</span></span>
+                    <span class="cmd-syntax"><span class="tag-ok"><i class="fa-solid fa-user"></i> Redsec KD4</span></span>
                     <span class="cmd-desc">KD entre 4.0 e 4.99 no modo Redsec</span>
                 </div>
                 <div class="cmd-row">
-                    <span class="cmd-syntax"><span class="tag-ok">Redsec KD5+</span></span>
+                    <span class="cmd-syntax"><span class="tag-ok"><i class="fa-solid fa-user"></i> Redsec KD5+</span></span>
                     <span class="cmd-desc">KD 5.0 ou acima no modo Redsec</span>
                 </div>
             </div>
@@ -731,30 +751,30 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td><span class="tag-ok">100% – 70%</span></td>
+                        <td><span class="tag-ok"><i class="fa-solid fa-user-check"></i> 100% – 70%</span></td>
                         <td>Jogador normal. Padrão da maioria dos jogadores.</td>
                     </tr>
                     <tr>
-                        <td><span class="tag-sus">70% – 50%</span></td>
+                        <td><span class="tag-sus"><i class="fa-solid fa-medal fa-fw"></i> 70% – 50%</span></td>
                         <td>Suspeito. Comum entre jogadores competitivos e profissionais de FPS.</td>
                     </tr>
                     <tr>
-                        <td><span class="tag-cheat">50% – 30%</span></td>
+                        <td><span class="tag-cheat"><i class="fa-solid fa-eye fa-fw"></i> 50% – 30%</span></td>
                         <td>Possível cheater. Forte indício de comportamento não-humano.</td>
                     </tr>
                     <tr>
-                        <td><span class="tag-cheat">Abaixo de 30%</span></td>
+                        <td><span class="tag-cheat"><i class="fa-solid fa-skull fa-fw"></i> Abaixo de 30%</span></td>
                         <td>Cheater. Padrão estatístico muito fora do normal.</td>
                     </tr>
                     <tr>
-                        <td><span class="tag-na">0,00%</span></td>
+                        <td><span class="tag-na"><i class="fa-solid fa-ghost fa-fw"></i> 0,00%</span></td>
                         <td>Perfil privado ou sem dados suficientes. Não se enquadra como cheater.</td>
                     </tr>
                 </tbody>
             </table>
 
             <div class="warn-box">
-                <span style="color:#f0c040;"><strong><i class="fa-solid fa-triangle-exclamation"></i> Aviso:</strong></span> Os valores são calculados com base no <strong>histórico total</strong> do jogador (Multiplayer, Redsec, Portal e demais modos). O uso recente de cheats pode ser temporariamente amortizado por horas de jogo legítimo anterior. Jogadores que <strong>usam o Portal para farmar nível</strong> também podem apresentar porcentagens baixas mesmo jogando os outros modos honestamente.
+                <strong style="color:#f0c040;"><i class="fa-solid fa-triangle-exclamation"></i> Aviso:</strong> Os valores são calculados com base no <strong>histórico total</strong> do jogador (Multiplayer, Redsec, Portal e demais modos). O uso recente de cheats pode ser temporariamente amortizado por horas de jogo legítimo anterior. Jogadores que <strong>usam o Portal para farmar nível</strong> também podem apresentar porcentagens baixas mesmo jogando os outros modos honestamente.
             </div>
 
         </div>
@@ -798,6 +818,24 @@
         }
         updateClock();
         setInterval(updateClock, 1000);
+
+        function updateNextUpdate() {
+            const el = document.getElementById('next-update');
+            if (!el) return;
+            const now = new Date();
+            // Próxima 04:00 horário de Brasília (UTC-3)
+            const brt = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+            const next = new Date(brt);
+            next.setHours(4, 0, 0, 0);
+            if (brt >= next) next.setDate(next.getDate() + 1);
+            const diff = next - brt;
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            el.textContent = `próx. atualização em ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+        updateNextUpdate();
+        setInterval(updateNextUpdate, 1000);
     </script>
 </body>
 </html>
