@@ -100,19 +100,34 @@
             border-bottom: 1px solid var(--border);
         }
 
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.25; }
+        }
+
         .status-dot {
             display: inline-block;
             width: 7px; height: 7px;
             border-radius: 50%;
-            background: var(--green);
             margin-right: 7px;
-            box-shadow: 0 0 7px var(--green);
             animation: blink 2.2s ease-in-out infinite;
+            vertical-align: middle;
+            position: relative;
+            top: -1px;
+        }
+        .status-dot.online {
+            background: var(--green);
+            box-shadow: 0 0 7px var(--green);
+        }
+        .status-dot.offline {
+            background: var(--red);
+            box-shadow: 0 0 7px var(--red);
         }
 
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.25; }
+        #status-tag.offline {
+            color: var(--red);
+            background: rgba(224,32,32,0.1);
+            border-color: rgba(224,32,32,0.35);
         }
 
         /* ── Banner ── */
@@ -594,9 +609,9 @@
 
         <!-- Status bar -->
         <div class="status-bar">
-            <span id="system-status">CPU 00% MEM 000/256 MB</span>
+            <span>MNV // MORRI NEM VI</span>
+            <span>BOT REDSEC // BFBR</span>
             <span id="clock">--:--:--</span>
-            <span>BOT REDSEC / BFBR</span>
         </div>
 
         <!-- Banner -->
@@ -607,7 +622,7 @@
 
         <!-- Headline -->
         <div class="headline-block">
-            <div class="label-tag">// Status: <span><span class="status-dot"></span>Online</div>
+            <div class="label-tag" id="status-tag"><span class="status-dot" id="status-dot"></span><span id="status-text">// Status: verificando...</span></div>
             <h1>Bot <span>Redsec</span> BFBR</h1>
             <p class="subtitle">Verificação de KD e anticheat para o Discord do Battlefield BR</p>
         </div>
@@ -837,23 +852,31 @@
         updateNextUpdate();
         setInterval(updateNextUpdate, 1000);
 
-        // CPU & Memory Randomizer
-        function randomBetween(min, max) {
-            return Math.floor(Math.random() * (max - min + 1)) + min;
+        async function checkBotStatus() {
+            const dot  = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
+            const tag  = document.getElementById('status-tag');
+            try {
+                const res = await fetch('https://bot-redsec-kd.fly.dev/', {
+                    method: 'GET',
+                    cache: 'no-cache',
+                    signal: AbortSignal.timeout(6000)
+                });
+                if (res.ok) {
+                    dot.className  = 'status-dot online';
+                    text.textContent = '// Status: Online';
+                    tag.classList.remove('offline');
+                } else {
+                    throw new Error('not ok');
+                }
+            } catch {
+                dot.className  = 'status-dot offline';
+                text.textContent = '// Status: Offline';
+                tag.classList.add('offline');
+            }
         }
-
-        function updateSystemStats() {
-            const cpu = randomBetween(1, 7);
-            const mem = randomBetween(147, 207);
-
-            const statusText = `CPU ${cpu}% MEM ${mem}/256 MB`;
-            document.getElementById('system-status').textContent = statusText;
-        }
-
-        // Atualiza a cada 3 segundos
-        setInterval(updateSystemStats, 3000);
-        updateSystemStats(); // Primeira execução
-    </script>
+        checkBotStatus();
+        setInterval(checkBotStatus, 60000); // Re-verifica a cada 60s
     </script>
 </body>
 </html>
