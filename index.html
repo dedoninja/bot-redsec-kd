@@ -124,6 +124,14 @@
             box-shadow: 0 0 7px var(--red);
         }
 
+        #status-tag {
+            transition: color 0.4s, background 0.4s, border-color 0.4s;
+        }
+        #status-tag.online {
+            color: var(--green);
+            background: rgba(62,207,106,0.07);
+            border-color: rgba(62,207,106,0.2);
+        }
         #status-tag.offline {
             color: var(--red);
             background: rgba(224,32,32,0.1);
@@ -852,27 +860,42 @@
         updateNextUpdate();
         setInterval(updateNextUpdate, 1000);
 
+        const UPTIME_API_KEY = 'm802713712-913cf35e27c1994fe3a7d07a';
+
         async function checkBotStatus() {
             const dot  = document.getElementById('status-dot');
             const text = document.getElementById('status-text');
             const tag  = document.getElementById('status-tag');
+
             try {
-                const res = await fetch('https://bot-redsec-kd.fly.dev/', {
-                    method: 'GET',
-                    cache: 'no-cache',
-                    signal: AbortSignal.timeout(6000)
-                });
-                if (res.ok) {
-                    dot.className  = 'status-dot online';
+                const res = await fetch(
+                    `https://api.uptimerobot.com/v2/getMonitors`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: `api_key=${UPTIME_API_KEY}&format=json&logs=0`,
+                        signal: AbortSignal.timeout(8000)
+                    }
+                );
+                const json = await res.json();
+                // status 2 = up, qualquer outro = problema
+                const monitor = json.monitors && json.monitors[0];
+                const isOnline = monitor && monitor.status === 2;
+
+                if (isOnline) {
+                    dot.className    = 'status-dot online';
                     text.textContent = '// Status: Online';
-                    tag.classList.remove('offline');
+                    tag.className    = 'label-tag online';
                 } else {
-                    throw new Error('not ok');
+                    dot.className    = 'status-dot offline';
+                    text.textContent = '// Status: Offline';
+                    tag.className    = 'label-tag offline';
                 }
             } catch {
-                dot.className  = 'status-dot offline';
-                text.textContent = '// Status: Offline';
-                tag.classList.add('offline');
+                // Falha na própria requisição à API — mantém último estado ou marca como desconhecido
+                dot.className    = 'status-dot offline';
+                text.textContent = '// Status: Desconhecido';
+                tag.className    = 'label-tag offline';
             }
         }
         checkBotStatus();
