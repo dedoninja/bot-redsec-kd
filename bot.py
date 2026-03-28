@@ -53,6 +53,34 @@ LOGS_CHANNEL_ID     = 1487221094174818495
 STAFF_ROLE_ID       = 472110979790929922
 DEDO_USER_ID        = 84299190288523264
 
+# ================== SALAS TEMPORÁRIAS ==================
+
+# Canais de criação → (categoria destino, nome da sala, emoji)
+VOICE_TRIGGER_MAP = {
+    1439347853834064090: (459529456663396372,  "🪖 Squad do {nick}"),   # Criar Squad Battlefield
+    1487547455435178176: (459529456663396372,  "🪖 Squad do {nick}"),   # Criar Squad BF1
+    1440679700925120543: (1440680027552350208, "🏟️ Squad do {nick}"),   # Criar Squad Arena
+    1439345126584483851: (1432911097324765275, "⭕ Duo do {nick}"),     # Criar Duo RedSec
+    1439344833624936771: (1432911097324765275, "⭕ Squad do {nick}"),   # Criar Squad RedSec
+    1477351422868721674: (1432911097324765275, "⭕ Squad KD2+ do {nick}"), # Criar Squad KD2+
+    1477363524354441267: (1432911097324765275, "⭕ Squad KD3+ do {nick}"), # Criar Squad KD3+
+    1477365476387721403: (1432911097324765275, "⭕ Squad KD4+ do {nick}"), # Criar Squad KD4+
+    1477365937043800255: (1432911097324765275, "⭕ Squad KD5+ do {nick}"), # Criar Squad KD5+
+    1449414825779138761: (1449414337977520312, "🏆 Squad do {nick}"),   # Criar Sala Competitiva
+}
+
+# Canais fixos que NUNCA devem ser deletados pelo bot
+VOICE_PROTECTED_CHANNELS = {
+    1341566545230561322,  # Lobby Battlefield
+    1440683314942967918,  # Lobby Arena/Gauntlet
+    1432919538525016124,  # Lobby RedSec
+    1449414468512649328,  # Lobby Competitivo
+    1449434543839903837,  # chat-competitivo (texto)
+}
+
+# Rastreia salas criadas pelo bot: canal_id → criador_id
+_temp_voice_channels: dict[int, int] = {}
+
 GIF_EA_ID    = "https://i.imgur.com/8hmECSV.gif"
 GIF_DataShare = "https://i.imgur.com/2Qp2qAI.gif"
 
@@ -376,6 +404,78 @@ class RegisterView(View):
     async def register_button(self, button: Button, interaction: discord.Interaction):
         await interaction.response.send_modal(RegisterModal())
 
+# ================== SALAS TEMPORÁRIAS (VOICE) ==================
+@bot.event
+async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+
+    # ── Entrou num canal de criação ──────────────────────────────────────────
+    if after.channel and after.channel.id in VOICE_TRIGGER_MAP:
+        trigger      = after.channel
+        category_id, name_template = VOICE_TRIGGER_MAP[trigger.id]
+
+        guild    = member.guild
+        category = guild.get_channel(category_id)
+        if not category:
+            return
+
+        nick      = member.display_name
+        sala_nome = name_template.format(nick=nick)
+
+        # Herda TODAS as permissões do canal de criação
+        # Compatível com py-cord 1.x e 2.x
+        try:
+            overwrites = dict(trigger.permission_overwrites)
+        except AttributeError:
+            overwrites = {
+                target: overwrite
+                for target, overwrite in trigger.overwrites.items()
+            }
+
+        # Adiciona Move Members apenas para o criador (por usuário, não por role)
+        overwrites[member] = discord.PermissionOverwrite(
+            move_members=True,
+            connect=True,
+            speak=True,
+        )
+
+        try:
+            new_channel = await guild.create_voice_channel(
+                name=sala_nome,
+                category=category,
+                overwrites=overwrites,
+                user_limit=trigger.user_limit,
+                bitrate=trigger.bitrate,
+                rtc_region=trigger.rtc_region,
+            )
+
+            # Registra a sala como temporária
+            _temp_voice_channels[new_channel.id] = member.id
+
+            # Move o membro para a nova sala
+            await member.move_to(new_channel)
+
+        except discord.Forbidden:
+            print(f"[VOICE] Sem permissão para criar canal em '{category.name}'")
+        except Exception as e:
+            print(f"[VOICE] Erro ao criar sala: {e}")
+        return
+
+    # ── Saiu de um canal (verifica se deve deletar) ──────────────────────────
+    if before.channel and before.channel.id in _temp_voice_channels:
+        channel = before.channel
+
+        # Só deleta se realmente ficou vazio e não é protegido
+        if channel.id not in VOICE_PROTECTED_CHANNELS and len(channel.members) == 0:
+            try:
+                await channel.delete(reason="Sala temporária vazia")
+                _temp_voice_channels.pop(channel.id, None)
+            except discord.NotFound:
+                _temp_voice_channels.pop(channel.id, None)
+            except discord.Forbidden:
+                print(f"[VOICE] Sem permissão para deletar '{channel.name}'")
+            except Exception as e:
+                print(f"[VOICE] Erro ao deletar sala: {e}")
+
 # ================== EVENTOS ==================
 @bot.event
 async def on_ready():
@@ -388,6 +488,75 @@ async def on_ready():
         print(f'Erro ao sincronizar comandos: {e}')
 
     bot.loop.create_task(auto_update_loop())
+    bot.loop.create_task(voice_sweep_loop())
+
+# ================== VARREDURA DE SALAS VAZIAS (04:00) ==================
+# Categorias monitoradas pela varredura
+VOICE_TARGET_CATEGORIES = {
+    459529456663396372,   # 🪖 Jogando Battlefield
+    1440680027552350208,  # 🏟️ Jogando Arena/Gauntlet
+    1432911097324765275,  # ⭕ Jogando RedSec
+    1449414337977520312,  # 🏆 Competitivo
+}
+
+async def voice_sweep_loop():
+    await bot.wait_until_ready()
+    HORARIO_SWEEP = 4  # Mesmo horário do auto-update (04:00 Brasília)
+    FUSO_BRASILIA = timezone(timedelta(hours=-3))
+
+    while not bot.is_closed():
+        try:
+            agora   = datetime.now(FUSO_BRASILIA)
+            proximo = agora.replace(hour=HORARIO_SWEEP, minute=0, second=30, microsecond=0)  # +30s após o auto-update
+            if agora >= proximo:
+                proximo += timedelta(days=1)
+            espera  = (proximo - agora).total_seconds()
+            print(f"[VOICE-SWEEP] Próxima varredura às {proximo.strftime('%d/%m/%Y %H:%M')} (Brasília). Aguardando {espera/3600:.1f}h.")
+            await asyncio.sleep(espera)
+            await run_voice_sweep()
+        except Exception as e:
+            print(f"[VOICE-SWEEP] Erro no loop: {e}")
+            await asyncio.sleep(60)
+
+async def run_voice_sweep():
+    print(f"[VOICE-SWEEP] Iniciando varredura - {datetime.utcnow().isoformat()}")
+    guild = bot.get_guild(SERVER_ID)
+    if not guild:
+        print("[VOICE-SWEEP] Servidor não encontrado.")
+        return
+
+    # Recarrega canais para garantir cache atualizado
+    try:
+        await guild.fetch_channels()
+    except Exception:
+        pass
+
+    deletados = 0
+    for channel in guild.voice_channels:
+        # Só canais nas categorias monitoradas
+        if not channel.category_id or channel.category_id not in VOICE_TARGET_CATEGORIES:
+            continue
+        # Nunca toca nos canais protegidos (lobbies, etc.)
+        if channel.id in VOICE_PROTECTED_CHANNELS:
+            continue
+        # Nunca toca nos canais de criação (triggers)
+        if channel.id in VOICE_TRIGGER_MAP:
+            continue
+        # Só deleta se estiver vazio
+        if len(channel.members) == 0:
+            try:
+                await channel.delete(reason="Varredura 04:00 — sala vazia")
+                _temp_voice_channels.pop(channel.id, None)
+                deletados += 1
+                print(f"[VOICE-SWEEP] Deletado: #{channel.name} (ID {channel.id})")
+            except discord.Forbidden:
+                print(f"[VOICE-SWEEP] Sem permissão para deletar '{channel.name}'")
+            except discord.NotFound:
+                _temp_voice_channels.pop(channel.id, None)
+            except Exception as e:
+                print(f"[VOICE-SWEEP] Erro ao deletar '{channel.name}': {e}")
+
+    print(f"[VOICE-SWEEP] Concluída. Salas removidas: {deletados}")
 
 # ================== ATUALIZACAO AUTOMATICA (24H) ==================
 async def auto_update_loop():

@@ -357,9 +357,13 @@
         /* How it works steps */
         .steps-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 10px;
             margin-bottom: 24px;
+        }
+
+        @media (max-width: 560px) {
+            .steps-grid { grid-template-columns: 1fr; }
         }
 
         .step-card {
@@ -645,7 +649,7 @@
         <div class="headline-block">
             <div class="label-tag" id="status-tag"><span class="status-dot" id="status-dot"></span><span id="status-text">// Status: verificando...</span></div>
             <h1>Bot <span>Redsec</span> BFBR</h1>
-            <p class="subtitle">Verificação de KD e anticheat para o Discord do Battlefield BR</p>
+            <p class="subtitle">Verificação de KD, criação de salas temporárias e<br>anticheat para o Discord do Battlefield BR.</p>
         </div>
 
         <!-- Divider -->
@@ -707,6 +711,11 @@
                     <div class="step-title">Atualização automática</div>
                     <div class="step-desc">Seu KD é verificado todo dia às 04:00 (Brasília). A role é atualizada sem precisar fazer nada.</div>
                     <div class="next-update-pill"><i class="fa-solid fa-arrows-rotate"></i> <span id="next-update">calculando...</span></div>
+                </div>
+                <div class="step-card">
+                    <span class="step-num">// PASSO 04</span>
+                    <div class="step-title">Crie e entre nas salas</div>
+                    <div class="step-desc">Com sua role de KD ativa, você já pode entrar nos canais criados ou criar salas clicando em <span class="channel-pill">➕ Criar...</span> para jogar com pessoas do seu nível.</div>
                 </div>
             </div>
 
@@ -809,16 +818,54 @@
                 </tbody>
             </table>
 
-            <div class="warn-box">
+            <div class="warn-box" style="margin-bottom: 32px;">
                 <strong style="color:#f0c040;"><i class="fa-solid fa-triangle-exclamation"></i> Aviso:</strong> Os valores são calculados com base no <strong>histórico total</strong> do jogador (Multiplayer, Redsec, Portal e demais modos). O uso recente de cheats pode ser temporariamente amortizado por horas de jogo legítimo anterior. Jogadores que <strong>usam o Portal para farmar nível</strong> também podem apresentar porcentagens baixas mesmo jogando os outros modos honestamente.
             </div>
 
         </div>
         <!-- fim help section -->
 
+        <!-- Salas temporárias -->
+        <div class="help-section" style="margin-top: 0;">
+
+            <div class="section-header">
+                <div class="section-header-line"></div>
+                <span class="section-title">// Salas temporárias de voz</span>
+                <div class="section-header-line"></div>
+            </div>
+
+            <div class="commands-block" style="margin-bottom: 24px;">
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><i class="fa-solid fa-plus" style="color:var(--red);margin-right:6px;"></i> Criar Squad Battlefield/BF1 🪖</span>
+                    <span class="cmd-desc">Cria salas para o multiplayer na categoria Jogando Battlefield. Sala de BF1 com 5 slots em vez de 4.</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><i class="fa-solid fa-plus" style="color:var(--red);margin-right:6px;"></i> Criar Squad Arena 🏟️</span>
+                    <span class="cmd-desc">Cria salas para Arena e Gauntlet na categoria Jogando Arena/Gauntlet.</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><i class="fa-solid fa-plus" style="color:var(--red);margin-right:6px;"></i> Criar Squad/Duo RedSec ⭕</span>
+                    <span class="cmd-desc">Cria salas abertas para qualquer KD na categoria Jogando RedSec.</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><i class="fa-solid fa-plus" style="color:var(--red);margin-right:6px;"></i> Criar Squad KD... ⭕</span>
+                    <span class="cmd-desc">Cria uma sala restrita com o KD do jogador na categoria Jogando RedSec.</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><i class="fa-solid fa-plus" style="color:var(--red);margin-right:6px;"></i> Criar Sala Competitiva 🏆</span>
+                    <span class="cmd-desc">Sala restrita a membros com role Competitivo na categoria Competitivo.</span>
+                </div>
+            </div>
+
+            <div class="warn-box">
+                <strong style="color:#f0c040;"><i class="fa-solid fa-circle-info"></i> Como funciona:</strong> Ao entrar num canal <span class="channel-pill">➕ Criar...</span>, o bot cria automaticamente uma sala de voz com seu nick e te move para ela. Quando a sala ficar vazia, ela é deletada automaticamente. O criador da sala tem permissão de <strong>desconectar/kickar (Botão direito → Disconnect)</strong> pessoas da própria sala caso queira remover alguém.
+            </div>
+
+        </div>
+
         <!-- Socials -->
         <div class="socials-section">
-            <p class="socials-label">// Redes oficiais</p>
+            <p class="socials-label">// Redes oficiais BFBR</p>
             <div class="socials-links">
                 <a href="https://www.battlefieldbr.com/" target="_blank">
                     <i class="fa-solid fa-globe"></i> Website
@@ -841,7 +888,7 @@
         <!-- Footer -->
         <div class="footer">
             <div>REDSEC KD BOT &mdash; BATTLEFIELD BR &copy; 2026 &mdash; TODOS OS DIREITOS RESERVADOS</div>
-            <div style="margin-top: 4px;">CRIADO POR <a href="https://discord.com/users/84299190288523264" target="_blank">DEDO_NINJA</a></div>
+            <div style="margin-top: 4px;">CRIADO POR <a href="https://discord.com/users/84299190288523264" target="_blank">DEDO_NINJA</a>. POR QUEM JOGA BF, PARA QUEM JOGA BF.</div>
         </div>
 
     </div>
