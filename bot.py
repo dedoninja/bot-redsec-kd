@@ -49,7 +49,7 @@ ROLE_CHEATER       = 1483272069042147389
 SUSPEITA_ROLES     = [ROLE_SUSPEITO, ROLE_SUSPEITO_PLUS, ROLE_CHEATER]
 
 ADM_CHAT_CHANNEL_ID = 405658596051779584
-LOGS_CHANNEL_ID     = 405507830167371786
+LOGS_CHANNEL_ID     = 1487221094174818495
 STAFF_ROLE_ID       = 472110979790929922
 DEDO_USER_ID        = 84299190288523264
 
@@ -548,7 +548,7 @@ async def ajuda(ctx: discord.ApplicationContext):
     embed = discord.Embed(
         title="Como usar o bot de KD Redsec",
         description=(
-            f"Use o botão **⭕ Registre-se aqui!** em {register_mention} para vincular seu EA ID!\n"
+            f"**Passo 1:** Vá até o canal `#registrar-kd-redsec⭕` ({register_mention}) e clique no botão **⭕ Registre-se aqui!**\n"
             "Após registrar, o bot atualiza suas roles automaticamente a cada **24 horas**.\n\n"
             f"**Comandos manuais** (use em {spam_mention}):\n"
             f"→ `/kd [SeuID] [plataforma]` — busca seu KD e atribui a role\n"
