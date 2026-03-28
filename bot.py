@@ -5,6 +5,7 @@ import requests
 import os
 import json
 import asyncio
+import time
 from datetime import datetime, timezone, timedelta
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
@@ -79,7 +80,9 @@ VOICE_PROTECTED_CHANNELS = {
 }
 
 # Rastreia salas criadas pelo bot: canal_id → criador_id
-_temp_voice_channels: dict[int, int] = {}
+_temp_voice_channels: set[int] = set()
+_voice_cooldowns: dict[int, float] = {}   # user_id → timestamp do último processamento
+VOICE_COOLDOWN_SECONDS = 5
 
 GIF_EA_ID    = "https://i.imgur.com/8hmECSV.gif"
 GIF_DataShare = "https://i.imgur.com/2Qp2qAI.gif"
@@ -407,31 +410,28 @@ class RegisterView(View):
 # ================== SALAS TEMPORÁRIAS (VOICE) ==================
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    if member.guild.id != SERVER_ID:
+        return
 
     # ── Entrou num canal de criação ──────────────────────────────────────────
     if after.channel and after.channel.id in VOICE_TRIGGER_MAP:
-        trigger      = after.channel
-        category_id, name_template = VOICE_TRIGGER_MAP[trigger.id]
+        # Cooldown aplicado APENAS na criação de sala (não afeta deleção)
+        agora_ts = time.monotonic()
+        ultimo   = _voice_cooldowns.get(member.id, 0)
+        if agora_ts - ultimo < VOICE_COOLDOWN_SECONDS:
+            return
+        _voice_cooldowns[member.id] = agora_ts
 
-        guild    = member.guild
-        category = guild.get_channel(category_id)
+        trigger     = after.channel
+        category_id, name_template = VOICE_TRIGGER_MAP[trigger.id]
+        category    = member.guild.get_channel(category_id)
         if not category:
             return
 
-        nick      = member.display_name
+        nick      = member.display_name or member.name
         sala_nome = name_template.format(nick=nick)
 
-        # Herda TODAS as permissões do canal de criação
-        # Compatível com py-cord 1.x e 2.x
-        try:
-            overwrites = dict(trigger.permission_overwrites)
-        except AttributeError:
-            overwrites = {
-                target: overwrite
-                for target, overwrite in trigger.overwrites.items()
-            }
-
-        # Adiciona Move Members apenas para o criador (por usuário, não por role)
+        overwrites = dict(trigger.overwrites)
         overwrites[member] = discord.PermissionOverwrite(
             move_members=True,
             connect=True,
@@ -439,42 +439,34 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
         )
 
         try:
-            new_channel = await guild.create_voice_channel(
+            new_channel = await member.guild.create_voice_channel(
                 name=sala_nome,
                 category=category,
                 overwrites=overwrites,
-                user_limit=trigger.user_limit,
+                user_limit=trigger.user_limit or 0,
                 bitrate=trigger.bitrate,
                 rtc_region=trigger.rtc_region,
             )
-
-            # Registra a sala como temporária
-            _temp_voice_channels[new_channel.id] = member.id
-
-            # Move o membro para a nova sala
+            _temp_voice_channels.add(new_channel.id)
             await member.move_to(new_channel)
-
         except discord.Forbidden:
             print(f"[VOICE] Sem permissão para criar canal em '{category.name}'")
         except Exception as e:
             print(f"[VOICE] Erro ao criar sala: {e}")
         return
 
-    # ── Saiu de um canal (verifica se deve deletar) ──────────────────────────
+    # ── Saiu de um canal temporário — verifica se deve deletar ───────────────
     if before.channel and before.channel.id in _temp_voice_channels:
         channel = before.channel
-
-        # Só deleta se realmente ficou vazio e não é protegido
         if channel.id not in VOICE_PROTECTED_CHANNELS and len(channel.members) == 0:
             try:
                 await channel.delete(reason="Sala temporária vazia")
-                _temp_voice_channels.pop(channel.id, None)
-            except discord.NotFound:
-                _temp_voice_channels.pop(channel.id, None)
             except discord.Forbidden:
                 print(f"[VOICE] Sem permissão para deletar '{channel.name}'")
             except Exception as e:
                 print(f"[VOICE] Erro ao deletar sala: {e}")
+            finally:
+                _temp_voice_channels.discard(channel.id)
 
 # ================== EVENTOS ==================
 @bot.event
@@ -525,14 +517,8 @@ async def run_voice_sweep():
         print("[VOICE-SWEEP] Servidor não encontrado.")
         return
 
-    # Recarrega canais para garantir cache atualizado
-    try:
-        await guild.fetch_channels()
-    except Exception:
-        pass
-
     deletados = 0
-    for channel in guild.voice_channels:
+    for channel in list(guild.voice_channels):
         # Só canais nas categorias monitoradas
         if not channel.category_id or channel.category_id not in VOICE_TARGET_CATEGORIES:
             continue
@@ -546,15 +532,13 @@ async def run_voice_sweep():
         if len(channel.members) == 0:
             try:
                 await channel.delete(reason="Varredura 04:00 — sala vazia")
-                _temp_voice_channels.pop(channel.id, None)
                 deletados += 1
-                print(f"[VOICE-SWEEP] Deletado: #{channel.name} (ID {channel.id})")
             except discord.Forbidden:
                 print(f"[VOICE-SWEEP] Sem permissão para deletar '{channel.name}'")
-            except discord.NotFound:
-                _temp_voice_channels.pop(channel.id, None)
-            except Exception as e:
-                print(f"[VOICE-SWEEP] Erro ao deletar '{channel.name}': {e}")
+            except Exception:
+                pass
+            finally:
+                _temp_voice_channels.discard(channel.id)
 
     print(f"[VOICE-SWEEP] Concluída. Salas removidas: {deletados}")
 
