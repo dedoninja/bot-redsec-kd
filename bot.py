@@ -123,19 +123,23 @@ bot = discord.Bot(intents=intents)
 # ================== HELPERS DE API ==================
 def make_session() -> requests.Session:
     session = requests.Session()
-    retries = Retry(total=1, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+    retries = Retry(total=1, backoff_factor=1, status_forcelist=[502, 503, 504])
     session.mount('https://', HTTPAdapter(max_retries=retries))
     return session
 
-def fetch_stats(gamertag: str, platform: str) -> dict | None:
+def fetch_stats(gamertag: str, platform: str):
     """
     Busca stats com fallback automático:
     1. Tenta pelo nome + plataforma
     2. Se KD vier zerado ou Redsec não encontrado, busca personaId/nucleusId via /bf6/player
     3. Refaz a busca de stats com os IDs corretos (prioriza cem_ea_id, depois steam/origin)
-    Retorna o JSON de stats ou None em caso de falha total.
+    Retorna:
+      - dict       → sucesso
+      - None       → jogador não encontrado
+      - "api_error" → instabilidade na API de stats (erro 500 ou falha de conexão)
     """
     session = make_session()
+    api_failed = False  # Sinaliza se houve erro de infraestrutura da API
 
     # --- Tentativa 1: pelo nome + plataforma ---
     try:
@@ -147,9 +151,11 @@ def fetch_stats(gamertag: str, platform: str) -> dict | None:
             if kd > 0.0:
                 return data  # Sucesso direto
             # KD zerado — tenta fallback
-        # Status != 200 — tenta fallback
+        elif resp.status_code == 500:
+            api_failed = True
+        # Outros status != 200 — tenta fallback
     except Exception:
-        pass
+        api_failed = True
 
     # --- Tentativa 2: busca personaId/nucleusId via /bf6/player ---
     try:
@@ -158,7 +164,10 @@ def fetch_stats(gamertag: str, platform: str) -> dict | None:
             timeout=30
         )
         if player_resp.status_code != 200:
-            return None
+            # Se o player lookup também falhou por erro de servidor, sinaliza
+            if player_resp.status_code == 500:
+                api_failed = True
+            return "api_error" if api_failed else None
 
         personas = player_resp.json().get('results', [])
         if not personas:
@@ -194,11 +203,13 @@ def fetch_stats(gamertag: str, platform: str) -> dict | None:
         resp2 = session.get(fixed_url, timeout=15)
         if resp2.status_code == 200:
             return resp2.json()
+        elif resp2.status_code == 500:
+            api_failed = True
 
     except Exception:
-        pass
+        api_failed = True
 
-    return None
+    return "api_error" if api_failed else None
 
 def _extract_redsec_kd(data: dict) -> tuple:
     """Auxiliar: extrai apenas o KD do Redsec para decisão de fallback."""
@@ -333,6 +344,13 @@ class RegisterModal(Modal):
 
         data = await asyncio.to_thread(fetch_stats, gamertag, platform_raw)
 
+        if data == "api_error":
+            await interaction.followup.send(
+                f"⚠️ A API de stats está instável no momento.\n"
+                f"Tente se registrar novamente em alguns minutos.",
+                ephemeral=True
+            )
+            return
         if data is None:
             await interaction.followup.send(
                 f"❌ ID **{gamertag}** não encontrado na plataforma **{platform_raw}**.\n"
@@ -737,6 +755,12 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
 
     data = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
 
+    if data == "api_error":
+        await ctx.followup.send(
+            f"⚠️ A API de stats está instável no momento.\n"
+            f"Tente novamente em alguns minutos."
+        )
+        return
     if data is None:
         await ctx.followup.send(
             f"❌ ID **{gamertag}** não encontrado na plataforma **{plataforma}**.\n"
@@ -808,6 +832,12 @@ async def hc(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
 
     data = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
 
+    if data == "api_error":
+        await ctx.followup.send(
+            f"⚠️ A API de stats está instável no momento.\n"
+            f"Tente novamente em alguns minutos."
+        )
+        return
     if data is None:
         await ctx.followup.send(
             f"❌ ID **{gamertag}** não encontrado na plataforma **{plataforma}**.\n"
