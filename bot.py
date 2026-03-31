@@ -596,19 +596,21 @@ async def run_auto_update():
         print("[AUTO-UPDATE] Nenhum usuário registrado.")
         return
 
-    total   = len(users)
-    updated = 0
-    failed  = 0
-    alerts  = []
+    total        = len(users)
+    updated      = 0
+    failed       = 0
+    alerts       = []
+    removed_users = {}  # Usuários que saíram do servidor
 
-    for discord_id, info in users.items():
+    for discord_id, info in list(users.items()):
         gamertag = info.get('gamertag')
         platform = info.get('platform', 'pc')
 
         try:
             member = guild.get_member(int(discord_id))
             if not member:
-                print(f"[AUTO-UPDATE] Membro {discord_id} não está no servidor, pulando.")
+                print(f"[AUTO-UPDATE] Membro {discord_id} não está no servidor, removendo do JSON.")
+                removed_users[discord_id] = info
                 continue
 
             old_kd_roles      = [r for r in member.roles if r.id in KD_ROLES]
@@ -652,6 +654,13 @@ async def run_auto_update():
             failed += 1
             continue
 
+    # Remove do JSON quem saiu do servidor
+    if removed_users:
+        for discord_id in removed_users:
+            users.pop(discord_id, None)
+        save_users(users)
+        print(f"[AUTO-UPDATE] {len(removed_users)} usuário(s) removido(s) do JSON.")
+
     logs_channel = bot.get_channel(LOGS_CHANNEL_ID)
     if logs_channel:
         # Marca @Dedo apenas se houver falhas
@@ -668,6 +677,23 @@ async def run_auto_update():
             summary += "\nNenhuma mudança de role detectada."
 
         await logs_channel.send(summary)
+
+        # Envia lista de removidos separado (para não estourar limite de caracteres)
+        if removed_users:
+            removed_lines = []
+            for discord_id, info in removed_users.items():
+                gamertag   = info.get('gamertag', '?')
+                platform   = info.get('platform', '?')
+                reg_at     = info.get('registered_at', '?')[:10]  # Só a data, sem hora
+                removed_lines.append(f"<@{discord_id}> | {gamertag} | {platform} | {reg_at}")
+
+            removed_msg = (
+                f"🧹 **{len(removed_users)} usuário(s) removido(s) do registro** (saíram do servidor):\n"
+                + "\n".join(removed_lines[:30])
+            )
+            if len(removed_users) > 30:
+                removed_msg += f"\n*...e mais {len(removed_users) - 30} removidos.*"
+            await logs_channel.send(removed_msg)
 
     print(f"[AUTO-UPDATE] Concluído. Atualizados: {updated} | Falhas: {failed}")
 
