@@ -27,6 +27,9 @@ def favicon():
     return redirect("https://cdn.discordapp.com/app-icons/1477325845277184112/6a7d1d2360e2cfcb656f221e6b00f908.png")
 
 def run_flask():
+    import logging
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)  # Suprime os logs de request do Flask
     app.run(host='0.0.0.0', port=8080)
 
 Thread(target=run_flask, daemon=True).start()
@@ -338,7 +341,7 @@ class RegisterModal(Modal):
             return
 
         await interaction.response.send_message(
-            f"<a:buscabf6:1485382186902229002> Registrando **{gamertag}** ({platform_raw})... *Pode demorar até 1 minuto.*",
+            f"<a:buscabf6:1488347979524997171> Registrando **{gamertag}** ({platform_raw})... *Pode demorar até 1 minuto.*",
             ephemeral=True
         )
 
@@ -473,10 +476,18 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
             print(f"[VOICE] Erro ao criar sala: {e}")
         return
 
-    # ── Saiu de um canal temporário — verifica se deve deletar ───────────────
-    if before.channel and before.channel.id in _temp_voice_channels:
+    # ── Saiu de um canal — verifica se deve deletar ─────────────────────────
+    # Checa tanto o conjunto em memória quanto as categorias monitoradas
+    # para funcionar mesmo após reinício do bot (quando _temp_voice_channels está vazio)
+    if before.channel:
         channel = before.channel
-        if channel.id not in VOICE_PROTECTED_CHANNELS and len(channel.members) == 0:
+        in_memory   = channel.id in _temp_voice_channels
+        in_category = (
+            channel.category_id in VOICE_TARGET_CATEGORIES
+            and channel.id not in VOICE_PROTECTED_CHANNELS
+            and channel.id not in VOICE_TRIGGER_MAP
+        )
+        if (in_memory or in_category) and len(channel.members) == 0:
             try:
                 await channel.delete(reason="Sala temporária vazia")
             except discord.Forbidden:
@@ -734,6 +745,38 @@ async def force_update(ctx: discord.ApplicationContext):
     await ctx.respond(f"🔄 Atualização forçada iniciada! Acompanhe o resultado em {logs_mention}.", ephemeral=True)
     await run_auto_update()
 
+@bot.slash_command(name="force_sweep", description="[ADMIN] Deleta agora todas as salas de voz vazias")
+@discord.default_permissions(administrator=True)
+async def force_sweep(ctx: discord.ApplicationContext):
+    await ctx.respond("🧹 Varredura de salas iniciada...", ephemeral=True)
+    guild = bot.get_guild(SERVER_ID)
+    if not guild:
+        await ctx.followup.send("❌ Servidor não encontrado.", ephemeral=True)
+        return
+
+    deletados = 0
+    for channel in list(guild.voice_channels):
+        if not channel.category_id or channel.category_id not in VOICE_TARGET_CATEGORIES:
+            continue
+        if channel.id in VOICE_PROTECTED_CHANNELS:
+            continue
+        if channel.id in VOICE_TRIGGER_MAP:
+            continue
+        if len(channel.members) == 0:
+            try:
+                await channel.delete(reason="Varredura manual — sala vazia")
+                _temp_voice_channels.discard(channel.id)
+                deletados += 1
+            except discord.Forbidden:
+                print(f"[FORCE-SWEEP] Sem permissão para deletar '{channel.name}'")
+            except Exception as e:
+                print(f"[FORCE-SWEEP] Erro ao deletar '{channel.name}': {e}")
+
+    await ctx.followup.send(
+        f"✅ Varredura concluída! **{deletados}** sala(s) vazia(s) removida(s).",
+        ephemeral=True
+    )
+
 @bot.slash_command(name="ajuda", description="Mostra como usar o bot")
 async def ajuda(ctx: discord.ApplicationContext):
     spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
@@ -775,7 +818,7 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
 
     await ctx.defer()
     await ctx.respond(
-        f"<a:buscabf6:1485382186902229002> Buscando KD **Redsec** de **{gamertag}** ({plataforma})...\n"
+        f"<a:buscabf6:1488347979524997171> Buscando KD **Redsec** de **{gamertag}** ({plataforma})...\n"
         f"*Pode demorar até 1 minuto.*"
     )
 
@@ -852,7 +895,7 @@ async def hc(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
 
     await ctx.defer()
     await ctx.respond(
-        f"<a:buscabf6:1485382186902229002> Consultando human% de **{gamertag}** ({plataforma})...\n"
+        f"<a:buscabf6:1488347979524997171> Consultando human% de **{gamertag}** ({plataforma})...\n"
         f"*Pode demorar até 1 minuto.*"
     )
 
