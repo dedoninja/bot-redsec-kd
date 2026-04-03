@@ -28,8 +28,7 @@ def favicon():
 
 def run_flask():
     import logging
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)  # Suprime os logs de request do Flask
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
     app.run(host='0.0.0.0', port=8080)
 
 Thread(target=run_flask, daemon=True).start()
@@ -338,6 +337,13 @@ class RegisterModal(Modal):
                 "❌ Plataforma inválida. Use **pc**, **psn** ou **xbox**.",
                 ephemeral=True
             )
+            logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
+            if logs_ch:
+                await logs_ch.send(
+                    f"📋 **Registro** | {interaction.user.mention} (`{interaction.user.id}`)\n"
+                    f"Gamertag: `{gamertag}` | Plataforma: `{platform_raw}`\n"
+                    f"❌ Erro: Plataforma inválida informada."
+                )
             return
 
         await interaction.response.send_message(
@@ -353,6 +359,13 @@ class RegisterModal(Modal):
                 f"Tente se registrar novamente em alguns minutos.",
                 ephemeral=True
             )
+            logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
+            if logs_ch:
+                await logs_ch.send(
+                    f"📋 **Registro** | {interaction.user.mention} (`{interaction.user.id}`)\n"
+                    f"Gamertag: `{gamertag}` | Plataforma: `{platform_raw}`\n"
+                    f"❌ Erro: API de stats instável."
+                )
             return
         if data is None:
             await interaction.followup.send(
@@ -360,6 +373,13 @@ class RegisterModal(Modal):
                 f"Verifique seu **ID da EA**. Como encontrar: {GIF_EA_ID}",
                 ephemeral=True
             )
+            logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
+            if logs_ch:
+                await logs_ch.send(
+                    f"📋 **Registro** | {interaction.user.mention} (`{interaction.user.id}`)\n"
+                    f"Gamertag: `{gamertag}` | Plataforma: `{platform_raw}`\n"
+                    f"❌ Erro: ID não encontrado na API."
+                )
             return
 
         kd_val, human_pct = extract_kd_and_human(data)
@@ -375,6 +395,13 @@ class RegisterModal(Modal):
                 f"- Certifique-se de usar o **ID da EA** correto. Veja como: {GIF_EA_ID}",
                 ephemeral=True
             )
+            logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
+            if logs_ch:
+                await logs_ch.send(
+                    f"📋 **Registro** | {interaction.user.mention} (`{interaction.user.id}`)\n"
+                    f"Gamertag: `{gamertag}` | Plataforma: `{platform_raw}`\n"
+                    f"❌ Erro: Sem partidas no Redsec."
+                )
             return
 
         # Salva no JSON
@@ -410,7 +437,6 @@ class RegisterModal(Modal):
                         )
 
         action = "atualizado" if old_entry else "registrado"
-        # Mostra ao jogador apenas o status público (sem % real se for suspeito)
         await interaction.followup.send(
             f"✅ Nick **{action}** com sucesso!\n"
             f"Gamertag: **{gamertag}** ({platform_raw})\n"
@@ -418,6 +444,14 @@ class RegisterModal(Modal):
             f"Status: **{changes['suspeita_publico']}**",
             ephemeral=True
         )
+        logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
+        if logs_ch:
+            stats_url = f"https://gametools.network/stats/{platform_raw}/name/{gamertag}?game=bf6"
+            await logs_ch.send(
+                f"📋 **Registro** | {interaction.user.mention} (`{interaction.user.id}`)\n"
+                f"Gamertag: `{gamertag}` | Plataforma: `{platform_raw}` | Ação: **{action}**\n"
+                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | [Stats]({stats_url})"
+            )
 
 # ================== BOTAO DE REGISTRO ==================
 class RegisterView(View):
@@ -477,10 +511,9 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
         return
 
     # ── Saiu de um canal — verifica se deve deletar ─────────────────────────
-    # Checa tanto o conjunto em memória quanto as categorias monitoradas
-    # para funcionar mesmo após reinício do bot (quando _temp_voice_channels está vazio)
+    # Funciona mesmo após reinício do bot (quando _temp_voice_channels está vazio)
     if before.channel:
-        channel = before.channel
+        channel     = before.channel
         in_memory   = channel.id in _temp_voice_channels
         in_category = (
             channel.category_id in VOICE_TARGET_CATEGORIES
@@ -518,6 +551,14 @@ VOICE_TARGET_CATEGORIES = {
     1440680027552350208,  # 🏟️ Jogando Arena/Gauntlet
     1432911097324765275,  # ⭕ Jogando RedSec
     1449414337977520312,  # 🏆 Competitivo
+}
+
+# Nome legível de cada categoria monitorada (para o relatório)
+VOICE_CATEGORY_NAMES = {
+    459529456663396372:   "🪖 Jogando Battlefield",
+    1440680027552350208:  "🏟️ Jogando Arena/Gauntlet",
+    1432911097324765275:  "⭕ Jogando RedSec",
+    1449414337977520312:  "🏆 Competitivo",
 }
 
 async def voice_sweep_loop():
@@ -607,11 +648,13 @@ async def run_auto_update():
         print("[AUTO-UPDATE] Nenhum usuário registrado.")
         return
 
-    total        = len(users)
-    updated      = 0
-    failed       = 0
-    alerts       = []
-    removed_users = {}  # Usuários que saíram do servidor
+    total         = len(users)
+    updated       = 0
+    failed        = 0
+    kd_changes    = []   # Mudanças reais de role de KD
+    sus_alerts    = []   # Human% baixo detectado
+    fail_details  = []   # Detalhes de falhas
+    removed_users = {}   # Usuários que saíram do servidor
 
     for discord_id, info in list(users.items()):
         gamertag = info.get('gamertag')
@@ -629,8 +672,14 @@ async def run_auto_update():
 
             data = await asyncio.to_thread(fetch_stats, gamertag, platform)
 
+            if data == "api_error":
+                print(f"[AUTO-UPDATE] API instável para {gamertag}, mantendo roles.")
+                fail_details.append(f"- `{gamertag}` ({platform}) — API de stats instável")
+                failed += 1
+                continue
             if data is None:
-                print(f"[AUTO-UPDATE] Falha na API para {gamertag}, mantendo roles.")
+                print(f"[AUTO-UPDATE] {gamertag} não encontrado na API, mantendo roles.")
+                fail_details.append(f"- `{gamertag}` ({platform}) — ID não encontrado na API")
                 failed += 1
                 continue
 
@@ -638,6 +687,7 @@ async def run_auto_update():
 
             if kd_val == 0.0:
                 print(f"[AUTO-UPDATE] {gamertag} sem stats no Redsec, mantendo roles.")
+                fail_details.append(f"- `{gamertag}` ({platform}) — Sem partidas no Redsec")
                 failed += 1
                 continue
 
@@ -649,13 +699,20 @@ async def run_auto_update():
             kd_changed        = set(r.id for r in old_kd_roles) != set(r.id for r in new_kd_roles)
             suspeita_changed  = set(r.id for r in old_suspeita_roles) != set(r.id for r in new_suspeita_roles)
             is_sus            = changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]
+            stats_url         = f"https://gametools.network/stats/{platform}/name/{gamertag}?game=bf6"
 
-            if kd_changed or suspeita_changed or is_sus:
+            if kd_changed:
                 old_kd_name = old_kd_roles[0].name if old_kd_roles else "Nenhuma"
-                alerts.append(
-                    f"- {member.mention} (`{gamertag}`) | "
-                    f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** (antes: {old_kd_name}) | "
-                    f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**"
+                kd_changes.append(
+                    f"- {member.mention} (`{gamertag}` | {platform}) | "
+                    f"KD: **{kd_val:.2f}** | **{old_kd_name}** → **{changes['kd_role']}** | "
+                    f"[Stats]({stats_url})"
+                )
+            if is_sus:
+                sus_alerts.append(
+                    f"- {member.mention} (`{gamertag}` | {platform}) | "
+                    f"KD: **{kd_val:.2f}** | Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
+                    f"[Stats]({stats_url})"
                 )
 
             await asyncio.sleep(5)
@@ -674,37 +731,47 @@ async def run_auto_update():
 
     logs_channel = bot.get_channel(LOGS_CHANNEL_ID)
     if logs_channel:
-        # Marca @Dedo apenas se houver falhas
         dedo_mention = f"<@{DEDO_USER_ID}> " if failed > 0 else ""
         summary = (
             f"{dedo_mention}**Atualização automática concluída!**\n"
             f"Total registrados: **{total}** | Atualizados: **{updated}** | Falhas (roles mantidas): **{failed}**\n"
         )
-        if alerts:
-            summary += f"\n**Mudanças detectadas ({len(alerts)}):**\n" + "\n".join(alerts[:20])
-            if len(alerts) > 20:
-                summary += f"\n*...e mais {len(alerts) - 20} mudanças.*"
-        else:
+        if not kd_changes and not sus_alerts:
             summary += "\nNenhuma mudança de role detectada."
-
         await logs_channel.send(summary)
 
-        # Envia lista de removidos separado (para não estourar limite de caracteres)
+        if kd_changes:
+            msg = f"**Mudanças de KD ({len(kd_changes)}):**\n" + "\n".join(kd_changes[:20])
+            if len(kd_changes) > 20:
+                msg += f"\n*...e mais {len(kd_changes) - 20}.*"
+            await logs_channel.send(msg)
+
+        if sus_alerts:
+            msg = f"**⚠️ Human% baixo detectado ({len(sus_alerts)}):**\n" + "\n".join(sus_alerts[:20])
+            if len(sus_alerts) > 20:
+                msg += f"\n*...e mais {len(sus_alerts) - 20}.*"
+            await logs_channel.send(msg)
+
+        if fail_details:
+            msg = f"**❌ Detalhes das falhas ({len(fail_details)}):**\n" + "\n".join(fail_details[:20])
+            if len(fail_details) > 20:
+                msg += f"\n*...e mais {len(fail_details) - 20}.*"
+            await logs_channel.send(msg)
+
         if removed_users:
             removed_lines = []
             for discord_id, info in removed_users.items():
-                gamertag   = info.get('gamertag', '?')
-                platform   = info.get('platform', '?')
-                reg_at     = info.get('registered_at', '?')[:10]  # Só a data, sem hora
-                removed_lines.append(f"<@{discord_id}> | {gamertag} | {platform} | {reg_at}")
-
-            removed_msg = (
+                gt     = info.get('gamertag', '?')
+                plat   = info.get('platform', '?')
+                reg_at = info.get('registered_at', '?')[:10]
+                removed_lines.append(f"<@{discord_id}> | {gt} | {plat} | {reg_at}")
+            msg = (
                 f"🧹 **{len(removed_users)} usuário(s) removido(s) do registro** (saíram do servidor):\n"
                 + "\n".join(removed_lines[:30])
             )
             if len(removed_users) > 30:
-                removed_msg += f"\n*...e mais {len(removed_users) - 30} removidos.*"
-            await logs_channel.send(removed_msg)
+                msg += f"\n*...e mais {len(removed_users) - 30} removidos.*"
+            await logs_channel.send(msg)
 
     print(f"[AUTO-UPDATE] Concluído. Atualizados: {updated} | Falhas: {failed}")
 
@@ -744,6 +811,59 @@ async def force_update(ctx: discord.ApplicationContext):
     logs_mention = logs_channel.mention if logs_channel else f"<#{LOGS_CHANNEL_ID}>"
     await ctx.respond(f"🔄 Atualização forçada iniciada! Acompanhe o resultado em {logs_mention}.", ephemeral=True)
     await run_auto_update()
+
+@bot.slash_command(name="report_salas", description="[ADMIN] Relatório de salas ativas nas categorias monitoradas")
+@discord.default_permissions(administrator=True)
+async def report_salas(ctx: discord.ApplicationContext):
+    guild = bot.get_guild(SERVER_ID)
+    if not guild:
+        await ctx.respond("❌ Servidor não encontrado.", ephemeral=True)
+        return
+
+    fuso_brt = timezone(timedelta(hours=-3))
+    agora    = datetime.now(fuso_brt).strftime("%d/%m/%Y • %H:%M")
+
+    total_salas   = 0
+    total_pessoas = 0
+    desc_lines    = []
+
+    # Mapa de lobby por categoria (para somar pessoas do lobby na contagem)
+    LOBBY_POR_CATEGORIA = {
+        459529456663396372:   1341566545230561322,  # Battlefield
+        1440680027552350208:  1440683314942967918,  # Arena/Gauntlet
+        1432911097324765275:  1432919538525016124,  # RedSec
+        1449414337977520312:  1449414468512649328,  # Competitivo
+    }
+
+    for cat_id, cat_name in VOICE_CATEGORY_NAMES.items():
+        salas   = 0
+        pessoas = 0
+        for ch in guild.voice_channels:
+            if ch.category_id != cat_id:
+                continue
+            if ch.id in VOICE_TRIGGER_MAP:
+                continue
+            if ch.id in VOICE_PROTECTED_CHANNELS:
+                # Conta apenas pessoas do lobby da categoria, não a sala em si
+                pessoas += len(ch.members)
+                continue
+            salas   += 1
+            pessoas += len(ch.members)
+        total_salas   += salas
+        total_pessoas += pessoas
+        desc_lines.append(
+            f"**{cat_name}**\nSalas: {salas}\nPessoas: {pessoas}"
+        )
+
+    desc = "\n\n".join(desc_lines)
+    desc += f"\n\n🔊 **Total de Salas: {total_salas}**\n👥 **Total de Pessoas: {total_pessoas}**"
+
+    embed = discord.Embed(
+        title=f"Relatório de Salas | {agora}",
+        description=desc,
+        color=discord.Color.blue()
+    )
+    await ctx.respond(embed=embed)
 
 @bot.slash_command(name="force_sweep", description="[ADMIN] Deleta agora todas as salas de voz vazias")
 @discord.default_permissions(administrator=True)
