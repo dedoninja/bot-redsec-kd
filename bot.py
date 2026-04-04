@@ -55,6 +55,7 @@ ADM_CHAT_CHANNEL_ID = 405658596051779584
 LOGS_CHANNEL_ID     = 1487221094174818495
 STAFF_ROLE_ID       = 472110979790929922
 DEDO_USER_ID        = 84299190288523264
+ROLE_FAZENDEIRO     = 1489771074945155113  # Ignora alerta de Human% baixo no log diário
 
 # ================== SALAS TEMPORÁRIAS ==================
 
@@ -709,11 +710,14 @@ async def run_auto_update():
                     f"[Stats]({stats_url})"
                 )
             if is_sus:
-                sus_alerts.append(
-                    f"- {member.mention} (`{gamertag}` | {platform}) | "
-                    f"KD: **{kd_val:.2f}** | Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
-                    f"[Stats]({stats_url})"
-                )
+                fazendeiro_role = member.guild.get_role(ROLE_FAZENDEIRO)
+                is_fazendeiro   = fazendeiro_role and fazendeiro_role in member.roles
+                if not is_fazendeiro:
+                    sus_alerts.append(
+                        f"- {member.mention} (`{gamertag}` | {platform}) | "
+                        f"KD: **{kd_val:.2f}** | Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
+                        f"[Stats]({stats_url})"
+                    )
 
             await asyncio.sleep(5)
 
@@ -896,6 +900,105 @@ async def force_sweep(ctx: discord.ApplicationContext):
         f"✅ Varredura concluída! **{deletados}** sala(s) vazia(s) removida(s).",
         ephemeral=True
     )
+
+@bot.slash_command(name="force_register", description="[ADMIN] Registra manualmente um usuário pelo Discord ID")
+@discord.default_permissions(administrator=True)
+@discord.option("discord_id", description="ID do Discord do usuário (ex: 186518341920227337)", required=True)
+@discord.option("gamertag", description="ID da EA do usuário", required=True)
+@discord.option("plataforma", description="Plataforma", required=True, choices=["pc", "psn", "xbox"])
+async def force_register(ctx: discord.ApplicationContext, discord_id: str, gamertag: str, plataforma: str):
+    await ctx.defer(ephemeral=True)
+
+    try:
+        target_id = int(discord_id)
+    except ValueError:
+        await ctx.respond("❌ Discord ID inválido. Use apenas números.", ephemeral=True)
+        return
+
+    guild = bot.get_guild(SERVER_ID)
+    if not guild:
+        await ctx.respond("❌ Servidor não encontrado.", ephemeral=True)
+        return
+
+    member = guild.get_member(target_id)
+    if not member:
+        await ctx.respond(f"❌ Usuário `{discord_id}` não encontrado no servidor.", ephemeral=True)
+        return
+
+    await ctx.respond(
+        f"<a:buscabf6:1488347979524997171> Registrando **{gamertag}** ({plataforma}) para {member.mention}...",
+        ephemeral=True
+    )
+
+    data = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
+
+    if data == "api_error":
+        await ctx.followup.send("⚠️ A API de stats está instável. Tente novamente em alguns minutos.", ephemeral=True)
+        return
+    if data is None:
+        await ctx.followup.send(
+            f"❌ ID **{gamertag}** não encontrado na plataforma **{plataforma}**.\n"
+            f"Verifique o ID da EA.",
+            ephemeral=True
+        )
+        return
+
+    kd_val, human_pct = extract_kd_and_human(data)
+
+    if kd_val == 0.0:
+        await ctx.followup.send(
+            f"⚠️ **{gamertag}** sem stats no **Redsec** ainda.\n"
+            f"O usuário precisa jogar partidas de Redsec antes de ser registrado.",
+            ephemeral=True
+        )
+        return
+
+    users     = load_users()
+    old_entry = users.get(str(target_id))
+    users[str(target_id)] = {
+        "gamertag":      gamertag,
+        "platform":      plataforma,
+        "registered_at": datetime.utcnow().isoformat()
+    }
+    save_users(users)
+
+    changes = await apply_roles(member, guild, kd_val, human_pct)
+
+    if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
+        adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
+        if adm_channel:
+            staff_role = guild.get_role(STAFF_ROLE_ID)
+            mention    = staff_role.mention if staff_role else "Staff"
+            await adm_channel.send(
+                f"{mention} Suspeita detectada via **/force_register**:\n"
+                f"Usuário: {member.mention} (ID: {member.id})\n"
+                f"Gamertag: **{gamertag}** ({plataforma})\n"
+                f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**\n"
+                f"Registrado por: {ctx.author.mention}"
+            )
+
+    action    = "atualizado" if old_entry else "registrado"
+    stats_url = f"https://gametools.network/stats/{plataforma}/name/{gamertag}?game=bf6"
+
+    await ctx.followup.send(
+        f"✅ **{member.display_name}** ({member.mention}) **{action}** com sucesso!\n"
+        f"Gamertag: **{gamertag}** ({plataforma})\n"
+        f"KD Redsec: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
+        f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**\n"
+        f"[Ver stats]({stats_url})",
+        ephemeral=True
+    )
+
+    logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
+    if logs_ch:
+        await logs_ch.send(
+            f"📋 **Force Register** | Admin: {ctx.author.mention}\n"
+            f"Usuário: {member.mention} (`{target_id}`) | Ação: **{action}**\n"
+            f"Gamertag: `{gamertag}` | Plataforma: `{plataforma}`\n"
+            f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | "
+            f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
+            f"[Stats]({stats_url})"
+        )
 
 @bot.slash_command(name="ajuda", description="Mostra como usar o bot")
 async def ajuda(ctx: discord.ApplicationContext):
