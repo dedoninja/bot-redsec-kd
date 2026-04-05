@@ -130,6 +130,32 @@ def make_session() -> requests.Session:
     session.mount('https://', HTTPAdapter(max_retries=retries))
     return session
 
+def resolve_player_ids(gamertag: str) -> tuple:
+    """Busca personaId e nucleusId via /bf6/player. Retorna (persona_id, nucleus_id) ou (None, None)."""
+    session = make_session()
+    try:
+        resp = session.get(
+            f"https://api.gametools.network/bf6/player?name={gamertag}",
+            timeout=30
+        )
+        if resp.status_code != 200:
+            return None, None
+        personas = resp.json().get('results', [])
+        if not personas:
+            return None, None
+        # Prioridade 1: cem_ea_id
+        for p in personas:
+            if p.get('platformId') == 'cem_ea_id':
+                return p.get('personaId'), p.get('nucleusId')
+        # Prioridade 2: steam ou origin
+        for p in personas:
+            if p.get('platformId') in ['steam', 'origin']:
+                return p.get('personaId'), p.get('nucleusId')
+        # Prioridade 3: qualquer persona
+        return personas[0].get('personaId'), personas[0].get('nucleusId')
+    except Exception:
+        return None, None
+
 def fetch_stats(gamertag: str, platform: str):
     """
     Busca stats com fallback automático:
@@ -245,6 +271,24 @@ def extract_kd_and_human(data: dict) -> tuple:
         human_pct = 0.0
 
     return kd, human_pct
+
+def extract_kd_by_mode(data: dict) -> dict:
+    """Extrai KD individual de cada modo: Squad, Duo, Solo, Gauntlet."""
+    modos = {
+        'Redsec Squad': 'Squad',
+        'Redsec Duo':   'Duo',
+        'Redsec Solo':  'Solo',
+        'Gauntlet':     'Gauntlet',
+    }
+    resultado = {v: 0.0 for v in modos.values()}
+    for mode in data.get('gameModes', []):
+        nome = mode.get('gamemodeName', '')
+        if nome in modos:
+            try:
+                resultado[modos[nome]] = float(mode.get('killDeath', 0.0))
+            except (ValueError, TypeError):
+                resultado[modos[nome]] = 0.0
+    return resultado
 
 def classificar_suspeita(human_pct: float) -> tuple:
     """
@@ -405,15 +449,21 @@ class RegisterModal(Modal):
                 )
             return
 
-        # Salva no JSON
+        # Resolve e salva persona_id/nucleus_id junto com o registro
+        persona_id, nucleus_id = await asyncio.to_thread(resolve_player_ids, gamertag)
+
         users      = load_users()
         discord_id = str(interaction.user.id)
         old_entry  = users.get(discord_id)
-        users[discord_id] = {
+        entry = {
             "gamertag":      gamertag,
             "platform":      platform_raw,
             "registered_at": datetime.utcnow().isoformat()
         }
+        if persona_id and nucleus_id:
+            entry["persona_id"] = persona_id
+            entry["nucleus_id"] = nucleus_id
+        users[discord_id] = entry
         save_users(users)
 
         # Aplica roles
@@ -428,8 +478,6 @@ class RegisterModal(Modal):
                 if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
                     adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
                     if adm_channel:
-                        staff_role = guild.get_role(STAFF_ROLE_ID)
-                        mention = staff_role.mention if staff_role else "Staff"
                         await adm_channel.send(
                             f"{mention} Suspeita detectada no **registro**:\n"
                             f"Usuário: {member.mention} (ID: {member.id})\n"
@@ -437,11 +485,14 @@ class RegisterModal(Modal):
                             f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**"
                         )
 
+        kd_modos = extract_kd_by_mode(data)
         action = "atualizado" if old_entry else "registrado"
         await interaction.followup.send(
             f"✅ Nick **{action}** com sucesso!\n"
             f"Gamertag: **{gamertag}** ({platform_raw})\n"
             f"KD Redsec: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
+            f"KD Squad: **{kd_modos['Squad']:.2f}** | KD Duo: **{kd_modos['Duo']:.2f}** | "
+            f"KD Solo: **{kd_modos['Solo']:.2f}** | KD Gauntlet: **{kd_modos['Gauntlet']:.2f}**\n"
             f"Status: **{changes['suspeita_publico']}**",
             ephemeral=True
         )
@@ -451,7 +502,7 @@ class RegisterModal(Modal):
             await logs_ch.send(
                 f"📋 **Registro** | {interaction.user.mention} (`{interaction.user.id}`)\n"
                 f"Gamertag: `{gamertag}` | Plataforma: `{platform_raw}` | Ação: **{action}**\n"
-                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | [Stats]({stats_url})"
+                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | <{stats_url}>"
             )
 
 # ================== BOTAO DE REGISTRO ==================
@@ -671,16 +722,38 @@ async def run_auto_update():
             old_kd_roles      = [r for r in member.roles if r.id in KD_ROLES]
             old_suspeita_roles = [r for r in member.roles if r.id in SUSPEITA_ROLES]
 
-            data = await asyncio.to_thread(fetch_stats, gamertag, platform)
+            persona_id = info.get('persona_id')
+            nucleus_id = info.get('nucleus_id')
+
+            # Se tiver IDs salvos, usa direto sem passar pelo /bf6/player
+            if persona_id and nucleus_id:
+                fixed_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
+                session   = make_session()
+                try:
+                    resp = session.get(fixed_url, timeout=15)
+                    data = resp.json() if resp.status_code == 200 else None
+                    if data is None:
+                        data = "api_error" if resp.status_code == 500 else None
+                except Exception:
+                    data = "api_error"
+            else:
+                data = await asyncio.to_thread(fetch_stats, gamertag, platform)
+                # Se conseguiu dados, resolve e salva os IDs para próximas vezes
+                if data and data != "api_error":
+                    pid, nid = await asyncio.to_thread(resolve_player_ids, gamertag)
+                    if pid and nid:
+                        users[discord_id]['persona_id'] = pid
+                        users[discord_id]['nucleus_id']  = nid
+                        save_users(users)
 
             if data == "api_error":
                 print(f"[AUTO-UPDATE] API instável para {gamertag}, mantendo roles.")
-                fail_details.append(f"- `{gamertag}` ({platform}) — API de stats instável")
+                fail_details.append(f"- {member.mention} `{gamertag}` ({platform}) — API de stats instável")
                 failed += 1
                 continue
             if data is None:
                 print(f"[AUTO-UPDATE] {gamertag} não encontrado na API, mantendo roles.")
-                fail_details.append(f"- `{gamertag}` ({platform}) — ID não encontrado na API")
+                fail_details.append(f"- {member.mention} `{gamertag}` ({platform}) — ID não encontrado na API")
                 failed += 1
                 continue
 
@@ -688,7 +761,7 @@ async def run_auto_update():
 
             if kd_val == 0.0:
                 print(f"[AUTO-UPDATE] {gamertag} sem stats no Redsec, mantendo roles.")
-                fail_details.append(f"- `{gamertag}` ({platform}) — Sem partidas no Redsec")
+                fail_details.append(f"- {member.mention} `{gamertag}` ({platform}) — Sem partidas no Redsec")
                 failed += 1
                 continue
 
@@ -707,7 +780,7 @@ async def run_auto_update():
                 kd_changes.append(
                     f"- {member.mention} (`{gamertag}` | {platform}) | "
                     f"KD: **{kd_val:.2f}** | **{old_kd_name}** → **{changes['kd_role']}** | "
-                    f"[Stats]({stats_url})"
+                    f"<{stats_url}>"
                 )
             if is_sus:
                 fazendeiro_role = member.guild.get_role(ROLE_FAZENDEIRO)
@@ -716,7 +789,7 @@ async def run_auto_update():
                     sus_alerts.append(
                         f"- {member.mention} (`{gamertag}` | {platform}) | "
                         f"KD: **{kd_val:.2f}** | Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
-                        f"[Stats]({stats_url})"
+                        f"<{stats_url}>"
                     )
 
             await asyncio.sleep(5)
@@ -955,11 +1028,16 @@ async def force_register(ctx: discord.ApplicationContext, discord_id: str, gamer
 
     users     = load_users()
     old_entry = users.get(str(target_id))
-    users[str(target_id)] = {
+    pid, nid = await asyncio.to_thread(resolve_player_ids, gamertag)
+    entry_fr = {
         "gamertag":      gamertag,
         "platform":      plataforma,
         "registered_at": datetime.utcnow().isoformat()
     }
+    if pid and nid:
+        entry_fr["persona_id"] = pid
+        entry_fr["nucleus_id"] = nid
+    users[str(target_id)] = entry_fr
     save_users(users)
 
     changes = await apply_roles(member, guild, kd_val, human_pct)
@@ -967,10 +1045,8 @@ async def force_register(ctx: discord.ApplicationContext, discord_id: str, gamer
     if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
         adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
         if adm_channel:
-            staff_role = guild.get_role(STAFF_ROLE_ID)
-            mention    = staff_role.mention if staff_role else "Staff"
             await adm_channel.send(
-                f"{mention} Suspeita detectada via **/force_register**:\n"
+                f"⚠️ Suspeita detectada via **/force_register**:\n"
                 f"Usuário: {member.mention} (ID: {member.id})\n"
                 f"Gamertag: **{gamertag}** ({plataforma})\n"
                 f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**\n"
@@ -997,7 +1073,61 @@ async def force_register(ctx: discord.ApplicationContext, discord_id: str, gamer
             f"Gamertag: `{gamertag}` | Plataforma: `{plataforma}`\n"
             f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | "
             f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
-            f"[Stats]({stats_url})"
+            f"<{stats_url}>"
+        )
+
+@bot.slash_command(name="force_remove", description="[ADMIN] Remove um usuário do registro pelo Discord ID ou gamertag")
+@discord.default_permissions(administrator=True)
+@discord.option("discord_id", description="Discord ID do usuário (deixe em branco para buscar por gamertag)", required=False)
+@discord.option("gamertag", description="Gamertag no banco de dados (deixe em branco para buscar por Discord ID)", required=False)
+async def force_remove(ctx: discord.ApplicationContext, discord_id: str = None, gamertag: str = None):
+    if not discord_id and not gamertag:
+        await ctx.respond("❌ Informe ao menos um: **discord_id** ou **gamertag**.", ephemeral=True)
+        return
+
+    users = load_users()
+    removed_id  = None
+    removed_info = None
+
+    if discord_id:
+        if discord_id in users:
+            removed_id   = discord_id
+            removed_info = users[discord_id]
+        else:
+            await ctx.respond(f"❌ Discord ID `{discord_id}` não encontrado no registro.", ephemeral=True)
+            return
+    else:
+        # Busca por gamertag (case-insensitive)
+        gamertag_lower = gamertag.lower()
+        for uid, info in users.items():
+            if info.get('gamertag', '').lower() == gamertag_lower:
+                removed_id   = uid
+                removed_info = info
+                break
+        if not removed_id:
+            await ctx.respond(f"❌ Gamertag `{gamertag}` não encontrada no registro.", ephemeral=True)
+            return
+
+    users.pop(removed_id, None)
+    save_users(users)
+
+    gt   = removed_info.get('gamertag', '?')
+    plat = removed_info.get('platform', '?')
+    reg  = removed_info.get('registered_at', '?')[:10]
+
+    await ctx.respond(
+        f"✅ Usuário removido do registro!\n"
+        f"Discord: <@{removed_id}> (`{removed_id}`)\n"
+        f"Gamertag: `{gt}` | Plataforma: `{plat}` | Registrado em: `{reg}`",
+        ephemeral=True
+    )
+
+    logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
+    if logs_ch:
+        await logs_ch.send(
+            f"🗑️ **Force Remove** | Admin: {ctx.author.mention}\n"
+            f"Usuário: <@{removed_id}> (`{removed_id}`)\n"
+            f"Gamertag: `{gt}` | Plataforma: `{plat}` | Registrado em: `{reg}`"
         )
 
 @bot.slash_command(name="ajuda", description="Mostra como usar o bot")
@@ -1082,8 +1212,6 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
     if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
         adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
         if adm_channel:
-            staff_role = guild.get_role(STAFF_ROLE_ID)
-            mention = staff_role.mention if staff_role else "Staff"
             await adm_channel.send(
                 f"{mention} Suspeita detectada via **/kd**:\n"
                 f"Usuário: {ctx.author.mention} (ID: {ctx.author.id})\n"
@@ -1091,12 +1219,14 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
                 f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**"
             )
 
-    # Mostra ao jogador apenas o status público
+    kd_modos = extract_kd_by_mode(data)
     register_channel = bot.get_channel(REGISTER_CHANNEL_ID)
     register_mention = register_channel.mention if register_channel else "canal de registro"
     await ctx.followup.send(
         f"✅ KD **Redsec** atual: **{kd_val:.2f}**\n"
         f"Role atribuída: **{changes['kd_role']}**\n"
+        f"KD Squad: **{kd_modos['Squad']:.2f}** | KD Duo: **{kd_modos['Duo']:.2f}** | "
+        f"KD Solo: **{kd_modos['Solo']:.2f}** | KD Gauntlet: **{kd_modos['Gauntlet']:.2f}**\n"
         f"Status: **{changes['suspeita_publico']}**\n"
         f"Você já pode criar ou entrar em salas restritas ao seu KD.\n\n"
         f"💡 Para ter sua role atualizada automaticamente a cada 24h, registre-se em {register_mention}."
