@@ -290,6 +290,74 @@ def extract_kd_by_mode(data: dict) -> dict:
                 resultado[modos[nome]] = 0.0
     return resultado
 
+def build_stats_embed(data: dict, gamertag: str, platform: str, member=None, registered_at: str = None) -> discord.Embed:
+    """Monta o embed padronizado de stats para /stats, /minha_conta e /search_player."""
+    kd_val, human_pct = extract_kd_and_human(data)
+    kd_modos          = extract_kd_by_mode(data)
+
+    # Cor baseada no Human%
+    if human_pct == 0.0:
+        color = discord.Color.greyple()
+    elif human_pct >= 70.0:
+        color = discord.Color.green()
+    elif human_pct >= 50.0:
+        color = discord.Color.gold()
+    else:
+        color = discord.Color.red()
+
+    # Accuracy e headshots do JSON
+    try:
+        accuracy  = data.get('accuracy', '0%')
+        headshots = data.get('headshots', '0%')
+    except Exception:
+        accuracy  = '0%'
+        headshots = '0%'
+
+    # winPercent do modo Redsec
+    win_pct = '0%'
+    for mode in data.get('gameModes', []):
+        if mode.get('gamemodeName') == 'Redsec Squad':
+            win_pct = mode.get('winPercent', '0%')
+            break
+
+    # Título: menciona membro se cadastrado, senão só gamertag
+    if member:
+        title_str = f"Stats de {member.mention} (`{gamertag}` | `{platform}`)"
+    else:
+        title_str = f"Stats de `{gamertag}` | `{platform}`"
+
+    embed = discord.Embed(description=title_str, color=color)
+
+    # Avatar como thumbnail se membro conhecido
+    if member and member.display_avatar:
+        embed.set_thumbnail(url=member.display_avatar.url)
+
+    # Campos principais
+    embed.add_field(name="✅ KD Redsec atual", value=f"**{kd_val:.2f}**", inline=False)
+    embed.add_field(name="🧠 Human%",          value=f"**{human_pct:.2f}%**", inline=True)
+    embed.add_field(name="🎯 Accuracy",         value=f"**{accuracy}**",       inline=True)
+    embed.add_field(name="💀 Headshots",        value=f"**{headshots}**",      inline=True)
+    embed.add_field(name="🥇 1° lugar",         value=f"**{win_pct}**",        inline=True)
+
+    # KD por modo inline
+    embed.add_field(name="KD Squad",   value=f"{kd_modos['Squad']:.2f}",   inline=True)
+    embed.add_field(name="KD Duo",     value=f"{kd_modos['Duo']:.2f}",     inline=True)
+    embed.add_field(name="KD Solo",    value=f"{kd_modos['Solo']:.2f}",    inline=True)
+    embed.add_field(name="KD Gauntlet",value=f"{kd_modos['Gauntlet']:.2f}",inline=True)
+
+    # Rodapé com data de cadastro se disponível
+    footer_parts = []
+    if registered_at:
+        try:
+            dt = datetime.fromisoformat(registered_at)
+            footer_parts.append(f"Cadastrado em {dt.strftime('%d/%m/%Y')}")
+        except Exception:
+            pass
+    footer_parts.append(f"Consultado em {datetime.now(timezone(timedelta(hours=-3))).strftime('%d/%m/%Y %H:%M')} (BRT)")
+    embed.set_footer(text=" • ".join(footer_parts))
+
+    return embed, kd_val, human_pct
+
 def classificar_suspeita(human_pct: float) -> tuple:
     """
     Retorna (role_id_ou_None, nome_interno, nome_publico).
@@ -1232,33 +1300,27 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
         f"💡 Para ter sua role atualizada automaticamente a cada 24h, registre-se em {register_mention}."
     )
 
-@bot.slash_command(name="hc", description="Consulta % de humanidade de um jogador")
+@bot.slash_command(name="stats", description="Mostra stats completos de um jogador no Redsec")
 @discord.option("gamertag", description="ID da EA", required=True)
 @discord.option("plataforma", description="Plataforma", required=True, choices=["pc", "psn", "xbox"])
-async def hc(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
+async def stats(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
     spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
     spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
 
     if ctx.channel_id != BOT_SPAM_CHANNEL_ID:
-        await ctx.respond(
-            f"⚠️ Por favor, use os comandos de bot em {spam_mention}.",
-            ephemeral=True
-        )
+        await ctx.respond(f"⚠️ Por favor, use os comandos de bot em {spam_mention}.", ephemeral=True)
         return
 
     await ctx.defer()
     await ctx.respond(
-        f"<a:buscabf6:1488347979524997171> Consultando human% de **{gamertag}** ({plataforma})...\n"
+        f"<a:buscabf6:1488347979524997171> Buscando stats de **{gamertag}** ({plataforma})...\n"
         f"*Pode demorar até 1 minuto.*"
     )
 
     data = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
 
     if data == "api_error":
-        await ctx.followup.send(
-            f"⚠️ A API de stats está instável no momento.\n"
-            f"Tente novamente em alguns minutos."
-        )
+        await ctx.followup.send("⚠️ A API de stats está instável no momento. Tente novamente em alguns minutos.")
         return
     if data is None:
         await ctx.followup.send(
@@ -1267,21 +1329,202 @@ async def hc(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
         )
         return
 
-    _, human_pct = extract_kd_and_human(data)
+    # Verifica se o jogador está cadastrado no servidor
+    guild  = bot.get_guild(SERVER_ID)
+    member = None
+    registered_at = None
+    if guild:
+        users = load_users()
+        for uid, info in users.items():
+            if info.get('gamertag', '').lower() == gamertag.lower() and info.get('platform') == plataforma:
+                member        = guild.get_member(int(uid))
+                registered_at = info.get('registered_at')
+                break
 
-    # /hc sempre mostra o valor REAL para todos
-    if human_pct == 0.0:
-        categoria = "Human% não disponível ou perfil sem dados suficientes (0.00%)"
-    elif human_pct >= 70.0:
-        categoria = "Jogador Normal ✅"
-    elif human_pct >= 50.0:
-        categoria = "Suspeito 🚨"
-    elif human_pct >= 30.0:
-        categoria = "Possível Cheater ⚠️"
+    embed, kd_val, human_pct = build_stats_embed(data, gamertag, plataforma, member, registered_at)
+    stats_url = f"<https://gametools.network/stats/{plataforma}/name/{gamertag}?game=bf6>"
+    embed.add_field(name="🔗 Perfil", value=stats_url, inline=False)
+    await ctx.followup.send(embed=embed)
+
+@bot.slash_command(name="search_player", description="[ADMIN] Busca um jogador cadastrado por Discord ID ou gamertag")
+@discord.default_permissions(administrator=True)
+@discord.option("discord_id", description="Discord ID do usuário", required=False)
+@discord.option("gamertag",   description="Gamertag (ID da EA) cadastrada no banco", required=False)
+async def search_player(ctx: discord.ApplicationContext, discord_id: str = None, gamertag: str = None):
+    if not discord_id and not gamertag:
+        await ctx.respond("❌ Informe ao menos um: **discord_id** ou **gamertag**.", ephemeral=True)
+        return
+
+    users = load_users()
+    found_id   = None
+    found_info = None
+
+    if discord_id:
+        if discord_id in users:
+            found_id   = discord_id
+            found_info = users[discord_id]
+        else:
+            await ctx.respond(f"❌ Discord ID `{discord_id}` não encontrado no registro.", ephemeral=True)
+            return
     else:
-        categoria = "Cheater 💀"
+        for uid, info in users.items():
+            if info.get('gamertag', '').lower() == gamertag.lower():
+                found_id   = uid
+                found_info = info
+                break
+        if not found_id:
+            await ctx.respond(f"❌ Gamertag `{gamertag}` não encontrada no registro.", ephemeral=True)
+            return
 
-    await ctx.followup.send(f"🔍 Human% de **{gamertag}**: **{human_pct:.2f}%** → **{categoria}**")
+    gt            = found_info.get('gamertag', '?')
+    plat          = found_info.get('platform', 'pc')
+    registered_at = found_info.get('registered_at', '')
+    persona_id    = found_info.get('persona_id', '')
+    nucleus_id    = found_info.get('nucleus_id', '')
+
+    await ctx.defer(ephemeral=True)
+    await ctx.respond(
+        f"<a:buscabf6:1488347979524997171> Buscando stats de **{gt}** ({plat})...",
+        ephemeral=True
+    )
+
+    data = await asyncio.to_thread(fetch_stats, gt, plat)
+    guild  = bot.get_guild(SERVER_ID)
+    member = guild.get_member(int(found_id)) if guild else None
+
+    if data and data != "api_error":
+        embed, kd_val, human_pct = build_stats_embed(data, gt, plat, member, registered_at)
+    else:
+        embed = discord.Embed(
+            description=f"Stats de `{gt}` | `{plat}`\n⚠️ Não foi possível buscar stats da API agora.",
+            color=discord.Color.greyple()
+        )
+        if member and member.display_avatar:
+            embed.set_thumbnail(url=member.display_avatar.url)
+
+    # Links sem preview
+    api_url = f"<https://api.gametools.network/bf6/stats/?name={gt}&platform={plat}>"
+    if persona_id and nucleus_id:
+        api_url = f"<https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}&platform={plat}>"
+    stats_url = f"<https://gametools.network/stats/{plat}/name/{gt}?game=bf6>"
+
+    reg_fmt = ''
+    if registered_at:
+        try:
+            reg_fmt = datetime.fromisoformat(registered_at).strftime('%d/%m/%Y')
+        except Exception:
+            reg_fmt = registered_at[:10]
+
+    embed.add_field(name="📅 Cadastrado em", value=reg_fmt or '?',     inline=True)
+    embed.add_field(name="🆔 Discord ID",    value=f"`{found_id}`",     inline=True)
+    if persona_id:
+        embed.add_field(name="🎮 Persona ID", value=f"`{persona_id}`", inline=True)
+    embed.add_field(name="🔗 Stats",         value=stats_url,           inline=False)
+    embed.add_field(name="📡 API JSON",      value=api_url,             inline=False)
+
+    await ctx.followup.send(embed=embed, ephemeral=True)
+
+@bot.slash_command(name="minha_conta", description="Mostra seus stats e dados de cadastro")
+async def minha_conta(ctx: discord.ApplicationContext):
+    spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
+    spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
+
+    if ctx.channel_id != BOT_SPAM_CHANNEL_ID:
+        await ctx.respond(f"⚠️ Por favor, use este comando em {spam_mention}.", ephemeral=True)
+        return
+
+    users     = load_users()
+    discord_id = str(ctx.author.id)
+    if discord_id not in users:
+        register_channel = bot.get_channel(REGISTER_CHANNEL_ID)
+        register_mention = register_channel.mention if register_channel else "canal de registro"
+        await ctx.respond(
+            f"❌ Você ainda não está cadastrado!\n"
+            f"Vá até {register_mention} e clique em **⭕ Registre-se aqui!**",
+            ephemeral=True
+        )
+        return
+
+    info          = users[discord_id]
+    gt            = info.get('gamertag', '?')
+    plat          = info.get('platform', 'pc')
+    registered_at = info.get('registered_at', '')
+
+    await ctx.defer(ephemeral=True)
+    await ctx.respond(
+        f"<a:buscabf6:1488347979524997171> Buscando seus stats (**{gt}** | {plat})...",
+        ephemeral=True
+    )
+
+    data = await asyncio.to_thread(fetch_stats, gt, plat)
+
+    if data == "api_error":
+        await ctx.followup.send("⚠️ A API de stats está instável. Tente novamente em alguns minutos.", ephemeral=True)
+        return
+    if data is None:
+        await ctx.followup.send(f"❌ Não foi possível encontrar seus stats. Verifique seu cadastro.", ephemeral=True)
+        return
+
+    embed, _, _ = build_stats_embed(data, gt, plat, ctx.author, registered_at)
+    stats_url   = f"<https://gametools.network/stats/{plat}/name/{gt}?game=bf6>"
+    embed.add_field(name="🔗 Perfil", value=stats_url, inline=False)
+    await ctx.followup.send(embed=embed, ephemeral=True)
+
+@bot.slash_command(name="suspeitos", description="[ADMIN] Lista jogadores com role de suspeita (exceto Fazendeiros)")
+@discord.default_permissions(administrator=True)
+async def suspeitos(ctx: discord.ApplicationContext):
+    guild = bot.get_guild(SERVER_ID)
+    if not guild:
+        await ctx.respond("❌ Servidor não encontrado.", ephemeral=True)
+        return
+
+    fazendeiro_role = guild.get_role(ROLE_FAZENDEIRO)
+    linhas = []
+
+    for role_id in SUSPEITA_ROLES:
+        role = guild.get_role(role_id)
+        if not role:
+            continue
+        for member in role.members:
+            # Pula Fazendeiros
+            if fazendeiro_role and fazendeiro_role in member.roles:
+                continue
+            # Busca gamertag no JSON
+            users    = load_users()
+            gt       = '?'
+            plat     = '?'
+            reg_at   = '?'
+            for uid, info in users.items():
+                if uid == str(member.id):
+                    gt     = info.get('gamertag', '?')
+                    plat   = info.get('platform', '?')
+                    reg_at = info.get('registered_at', '?')[:10]
+                    break
+            stats_url = f"<https://gametools.network/stats/{plat}/name/{gt}?game=bf6>"
+            linhas.append(
+                f"- {member.mention} (`{gt}` | {plat}) | Role: **{role.name}** | "
+                f"Cadastrado: {reg_at} | {stats_url}"
+            )
+
+    if not linhas:
+        await ctx.respond("✅ Nenhum jogador suspeito encontrado (excluindo Fazendeiros).", ephemeral=True)
+        return
+
+    # Envia em blocos para não estourar limite
+    header = f"🚨 **Jogadores suspeitos ({len(linhas)}) — excluindo Fazendeiros:**\n"
+    msg    = header
+    msgs   = []
+    for linha in linhas:
+        if len(msg) + len(linha) + 1 > 1900:
+            msgs.append(msg)
+            msg = ""
+        msg += linha + "\n"
+    if msg:
+        msgs.append(msg)
+
+    await ctx.respond(msgs[0], ephemeral=False)
+    for m in msgs[1:]:
+        await ctx.followup.send(m, ephemeral=False)
 
 @bot.event
 async def on_command_error(ctx, error):
