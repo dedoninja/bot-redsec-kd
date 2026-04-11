@@ -51,7 +51,8 @@ ROLE_SUSPEITO_PLUS = 1483271744713130147
 ROLE_CHEATER       = 1483272069042147389
 SUSPEITA_ROLES     = [ROLE_SUSPEITO, ROLE_SUSPEITO_PLUS, ROLE_CHEATER]
 
-ADM_CHAT_CHANNEL_ID = 405658596051779584
+ADM_CHAT_CHANNEL_ID     = 405658596051779584
+ADM_COMMANDS_CHANNEL_ID = 405665188566532097  # Canal de comandos admin (testes)
 LOGS_CHANNEL_ID     = 1487221094174818495
 STAFF_ROLE_ID       = 472110979790929922
 DEDO_USER_ID        = 84299190288523264
@@ -555,13 +556,18 @@ class RegisterModal(Modal):
 
         kd_modos = extract_kd_by_mode(data)
         action = "atualizado" if old_entry else "registrado"
+        if old_entry:
+            nota_modal = "ℹ️ Seus dados já estavam cadastrados e foram atualizados. O bot atualiza sua role automaticamente todo dia às 04:00!"
+        else:
+            nota_modal = "✅ Seus dados foram salvos! O bot atualizará sua role automaticamente todo dia às 04:00."
         await interaction.followup.send(
             f"✅ Nick **{action}** com sucesso!\n"
             f"Gamertag: **{gamertag}** ({platform_raw})\n"
             f"KD Redsec: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
             f"KD Squad: **{kd_modos['Squad']:.2f}** | KD Duo: **{kd_modos['Duo']:.2f}** | "
             f"KD Solo: **{kd_modos['Solo']:.2f}** | KD Gauntlet: **{kd_modos['Gauntlet']:.2f}**\n"
-            f"Status: **{changes['suspeita_publico']}**",
+            f"Status: **{changes['suspeita_publico']}**\n\n"
+            f"{nota_modal}",
             ephemeral=True
         )
         logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
@@ -570,7 +576,8 @@ class RegisterModal(Modal):
             await logs_ch.send(
                 f"📋 **Registro** | {interaction.user.mention} (`{interaction.user.id}`)\n"
                 f"Gamertag: `{gamertag}` | Plataforma: `{platform_raw}` | Ação: **{action}**\n"
-                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | <{stats_url}>"
+                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | "
+                f"[Stats](<{stats_url}>) | [JSON](<https://api.gametools.network/bf6/stats/?name={gamertag}&platform={platform_raw}>)"
             )
 
 # ================== BOTAO DE REGISTRO ==================
@@ -695,17 +702,22 @@ async def voice_sweep_loop():
             espera  = (proximo - agora).total_seconds()
             print(f"[VOICE-SWEEP] Próxima varredura às {proximo.strftime('%d/%m/%Y %H:%M')} (Brasília). Aguardando {espera/3600:.1f}h.")
             await asyncio.sleep(espera)
-            await run_voice_sweep()
+            salas_deletadas = await run_voice_sweep()
+            # Reporta no canal de logs se deletou salas
+            if salas_deletadas > 0:
+                logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
+                if logs_ch:
+                    await logs_ch.send(f"🧹 Varredura 04:00 — **{salas_deletadas}** sala(s) de voz vazia(s) removida(s).")
         except Exception as e:
             print(f"[VOICE-SWEEP] Erro no loop: {e}")
             await asyncio.sleep(60)
 
-async def run_voice_sweep():
+async def run_voice_sweep() -> int:
     print(f"[VOICE-SWEEP] Iniciando varredura - {datetime.utcnow().isoformat()}")
     guild = bot.get_guild(SERVER_ID)
     if not guild:
         print("[VOICE-SWEEP] Servidor não encontrado.")
-        return
+        return 0
 
     deletados = 0
     for channel in list(guild.voice_channels):
@@ -731,6 +743,7 @@ async def run_voice_sweep():
                 _temp_voice_channels.discard(channel.id)
 
     print(f"[VOICE-SWEEP] Concluída. Salas removidas: {deletados}")
+    return deletados
 
 # ================== ATUALIZACAO AUTOMATICA (24H) ==================
 async def auto_update_loop():
@@ -854,10 +867,13 @@ async def run_auto_update():
                 fazendeiro_role = member.guild.get_role(ROLE_FAZENDEIRO)
                 is_fazendeiro   = fazendeiro_role and fazendeiro_role in member.roles
                 if not is_fazendeiro:
+                    json_url = f"https://api.gametools.network/bf6/stats/?name={gamertag}&platform={platform}"
+                    if persona_id and nucleus_id:
+                        json_url = f"https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
                     sus_alerts.append(
                         f"- {member.mention} (`{gamertag}` | {platform}) | "
                         f"KD: **{kd_val:.2f}** | Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
-                        f"<{stats_url}>"
+                        f"[Stats](<{stats_url}>) | [JSON](<{json_url}>)"
                     )
 
             await asyncio.sleep(5)
@@ -881,15 +897,7 @@ async def run_auto_update():
             f"{dedo_mention}**Atualização automática concluída!**\n"
             f"Total registrados: **{total}** | Atualizados: **{updated}** | Falhas (roles mantidas): **{failed}**\n"
         )
-        if not kd_changes and not sus_alerts:
-            summary += "\nNenhuma mudança de role detectada."
         await logs_channel.send(summary)
-
-        if kd_changes:
-            msg = f"**Mudanças de KD ({len(kd_changes)}):**\n" + "\n".join(kd_changes[:20])
-            if len(kd_changes) > 20:
-                msg += f"\n*...e mais {len(kd_changes) - 20}.*"
-            await logs_channel.send(msg)
 
         if sus_alerts:
             msg = f"**⚠️ Human% baixo detectado ({len(sus_alerts)}):**\n" + "\n".join(sus_alerts[:20])
@@ -938,7 +946,7 @@ async def generate_register(ctx: discord.ApplicationContext):
         description=(
             f"Clique no botão abaixo, informe seu **ID da EA** e a **plataforma** para receber sua role automaticamente!\n\n"
             f"**Como encontrar seu ID da EA?** Veja o GIF abaixo.\n\n"
-            f"Para usar os comandos manuais `/kd` e `/hc`, acesse {spam_mention}.\n"
+            f"Para usar os comandos manuais `/kd` e `/stats`, acesse {spam_mention}.\n"
             f"Dúvidas? Use `/ajuda`.\n\n"
             f"🟢 [Verificar se o bot está online](https://bot-redsec-kd.fly.dev/)"
         ),
@@ -1213,7 +1221,7 @@ async def ajuda(ctx: discord.ApplicationContext):
             "Após registrar, o bot atualiza suas roles automaticamente a cada **24 horas**.\n\n"
             f"**Comandos manuais** (use em {spam_mention}):\n"
             f"→ `/kd [SeuID] [plataforma]` — busca seu KD e atribui a role\n"
-            f"→ `/hc [IDdaEA] [plataforma]` — consulta a % de humanidade\n\n"
+            f"→ `/stats [IDdaEA] [plataforma]` — stats completos (KD, Human%, Accuracy...)\n"f"→ `/minha_conta` — veja seus próprios stats e dados de cadastro\n\n"
             "**Plataformas válidas:** `pc` · `psn` · `xbox`\n\n"
             "**Como pegar seu ID da EA?** Veja o GIF abaixo!\n\n"
             "Qualquer dúvida, chama a staff!"
@@ -1230,7 +1238,7 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
     spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
     spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
 
-    if ctx.channel_id != BOT_SPAM_CHANNEL_ID:
+    if ctx.channel_id not in (BOT_SPAM_CHANNEL_ID, ADM_COMMANDS_CHANNEL_ID):
         await ctx.respond(
             f"⚠️ Por favor, use os comandos de bot em {spam_mention}.",
             ephemeral=True
@@ -1287,17 +1295,49 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
                 f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**"
             )
 
+    # Salva no JSON (igual ao botão de registro)
+    users_data  = load_users()
+    disc_id_str = str(ctx.author.id)
+    old_entry   = users_data.get(disc_id_str)
+    pid, nid    = await asyncio.to_thread(resolve_player_ids, gamertag)
+    entry_kd    = {
+        "gamertag":      gamertag,
+        "platform":      plataforma,
+        "registered_at": datetime.utcnow().isoformat()
+    }
+    if pid and nid:
+        entry_kd["persona_id"] = pid
+        entry_kd["nucleus_id"] = nid
+    users_data[disc_id_str] = entry_kd
+    save_users(users_data)
+
+    # Log no canal de logs
+    logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
+    if logs_ch:
+        stats_url_log = f"https://api.gametools.network/bf6/stats/?name={gamertag}&platform={plataforma}"
+        if pid and nid:
+            stats_url_log = f"https://api.gametools.network/bf6/stats/?playerid={pid}&nucleus_id={nid}&platform={plataforma}"
+        action_log = "atualizado" if old_entry else "registrado"
+        await logs_ch.send(
+            f"📋 **Registro via /kd** | {ctx.author.mention} (`{ctx.author.id}`) | Ação: **{action_log}**\n"
+            f"Gamertag: `{gamertag}` | Plataforma: `{plataforma}`\n"
+            f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | "
+            f"[Stats](<https://gametools.network/stats/{plataforma}/name/{gamertag}?game=bf6>) | "
+            f"[JSON](<{stats_url_log}>)"
+        )
+
     kd_modos = extract_kd_by_mode(data)
-    register_channel = bot.get_channel(REGISTER_CHANNEL_ID)
-    register_mention = register_channel.mention if register_channel else "canal de registro"
+    if old_entry:
+        nota = "ℹ️ Seus dados já estavam cadastrados e foram atualizados. O bot atualiza sua role automaticamente todo dia às 04:00!"
+    else:
+        nota = "✅ Seus dados foram salvos! O bot atualizará sua role automaticamente todo dia às 04:00."
     await ctx.followup.send(
         f"✅ KD **Redsec** atual: **{kd_val:.2f}**\n"
         f"Role atribuída: **{changes['kd_role']}**\n"
         f"KD Squad: **{kd_modos['Squad']:.2f}** | KD Duo: **{kd_modos['Duo']:.2f}** | "
         f"KD Solo: **{kd_modos['Solo']:.2f}** | KD Gauntlet: **{kd_modos['Gauntlet']:.2f}**\n"
-        f"Status: **{changes['suspeita_publico']}**\n"
-        f"Você já pode criar ou entrar em salas restritas ao seu KD.\n\n"
-        f"💡 Para ter sua role atualizada automaticamente a cada 24h, registre-se em {register_mention}."
+        f"Status: **{changes['suspeita_publico']}**\n\n"
+        f"{nota}"
     )
 
 @bot.slash_command(name="stats", description="Mostra stats completos de um jogador no Redsec")
@@ -1307,7 +1347,7 @@ async def stats(ctx: discord.ApplicationContext, gamertag: str, plataforma: str)
     spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
     spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
 
-    if ctx.channel_id != BOT_SPAM_CHANNEL_ID:
+    if ctx.channel_id not in (BOT_SPAM_CHANNEL_ID, ADM_COMMANDS_CHANNEL_ID):
         await ctx.respond(f"⚠️ Por favor, use os comandos de bot em {spam_mention}.", ephemeral=True)
         return
 
@@ -1429,7 +1469,7 @@ async def minha_conta(ctx: discord.ApplicationContext):
     spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
     spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
 
-    if ctx.channel_id != BOT_SPAM_CHANNEL_ID:
+    if ctx.channel_id not in (BOT_SPAM_CHANNEL_ID, ADM_COMMANDS_CHANNEL_ID):
         await ctx.respond(f"⚠️ Por favor, use este comando em {spam_mention}.", ephemeral=True)
         return
 
