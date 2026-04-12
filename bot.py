@@ -131,6 +131,16 @@ def make_session() -> requests.Session:
     session.mount('https://', HTTPAdapter(max_retries=retries))
     return session
 
+def make_links(gamertag: str, platform: str, persona_id: str = None, nucleus_id: str = None) -> str:
+    """Gera links clicáveis [Stats] e [JSON] sem thumbnail para uso nos canais de log/ADM."""
+    stats_link = f"[Stats](<https://gametools.network/stats/{platform}/name/{gamertag}?game=bf6>)"
+    if persona_id and nucleus_id:
+        json_url  = f"https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
+    else:
+        json_url  = f"https://api.gametools.network/bf6/stats/?name={gamertag}&platform={platform}"
+    json_link = f"[JSON](<{json_url}>)"
+    return f"{stats_link} | {json_link}"
+
 def resolve_player_ids(gamertag: str) -> tuple:
     """Busca personaId e nucleusId via /bf6/player. Retorna (persona_id, nucleus_id) ou (None, None)."""
     session = make_session()
@@ -548,10 +558,11 @@ class RegisterModal(Modal):
                     adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
                     if adm_channel:
                         await adm_channel.send(
-                            f"{mention} Suspeita detectada no **registro**:\n"
+                            f"⚠️ Suspeita detectada no **registro**:\n"
                             f"Usuário: {member.mention} (ID: {member.id})\n"
                             f"Gamertag: **{gamertag}** ({platform_raw})\n"
-                            f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**"
+                            f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
+                            f"{make_links(gamertag, platform_raw, persona_id, nucleus_id)}"
                         )
 
         kd_modos = extract_kd_by_mode(data)
@@ -577,7 +588,7 @@ class RegisterModal(Modal):
                 f"📋 **Registro** | {interaction.user.mention} (`{interaction.user.id}`)\n"
                 f"Gamertag: `{gamertag}` | Plataforma: `{platform_raw}` | Ação: **{action}**\n"
                 f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | "
-                f"[Stats](<{stats_url}>) | [JSON](<https://api.gametools.network/bf6/stats/?name={gamertag}&platform={platform_raw}>)"
+                f"{make_links(gamertag, platform_raw, persona_id, nucleus_id)}"
             )
 
 # ================== BOTAO DE REGISTRO ==================
@@ -867,13 +878,10 @@ async def run_auto_update():
                 fazendeiro_role = member.guild.get_role(ROLE_FAZENDEIRO)
                 is_fazendeiro   = fazendeiro_role and fazendeiro_role in member.roles
                 if not is_fazendeiro:
-                    json_url = f"https://api.gametools.network/bf6/stats/?name={gamertag}&platform={platform}"
-                    if persona_id and nucleus_id:
-                        json_url = f"https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
                     sus_alerts.append(
                         f"- {member.mention} (`{gamertag}` | {platform}) | "
                         f"KD: **{kd_val:.2f}** | Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
-                        f"[Stats](<{stats_url}>) | [JSON](<{json_url}>)"
+                        f"{make_links(gamertag, platform, persona_id, nucleus_id)}"
                     )
 
             await asyncio.sleep(5)
@@ -1125,7 +1133,8 @@ async def force_register(ctx: discord.ApplicationContext, discord_id: str, gamer
                 f"⚠️ Suspeita detectada via **/force_register**:\n"
                 f"Usuário: {member.mention} (ID: {member.id})\n"
                 f"Gamertag: **{gamertag}** ({plataforma})\n"
-                f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**\n"
+                f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
+                f"{make_links(gamertag, plataforma, pid, nid)}\n"
                 f"Registrado por: {ctx.author.mention}"
             )
 
@@ -1137,7 +1146,7 @@ async def force_register(ctx: discord.ApplicationContext, discord_id: str, gamer
         f"Gamertag: **{gamertag}** ({plataforma})\n"
         f"KD Redsec: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
         f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**\n"
-        f"[Ver stats]({stats_url})",
+        f"{make_links(gamertag, plataforma, pid, nid)}",
         ephemeral=True
     )
 
@@ -1149,7 +1158,7 @@ async def force_register(ctx: discord.ApplicationContext, discord_id: str, gamer
             f"Gamertag: `{gamertag}` | Plataforma: `{plataforma}`\n"
             f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | "
             f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
-            f"<{stats_url}>"
+            f"{make_links(gamertag, plataforma, pid, nid)}"
         )
 
 @bot.slash_command(name="force_remove", description="[ADMIN] Remove um usuário do registro pelo Discord ID ou gamertag")
@@ -1284,17 +1293,6 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
 
     changes = await apply_roles(ctx.author, guild, kd_val, human_pct)
 
-    # Avisa ADM com valor real
-    if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
-        adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
-        if adm_channel:
-            await adm_channel.send(
-                f"{mention} Suspeita detectada via **/kd**:\n"
-                f"Usuário: {ctx.author.mention} (ID: {ctx.author.id})\n"
-                f"Gamertag: **{gamertag}** ({plataforma})\n"
-                f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**"
-            )
-
     # Salva no JSON (igual ao botão de registro)
     users_data  = load_users()
     disc_id_str = str(ctx.author.id)
@@ -1311,6 +1309,18 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
     users_data[disc_id_str] = entry_kd
     save_users(users_data)
 
+    # Avisa ADM com valor real (após resolver pid/nid)
+    if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
+        adm_channel = bot.get_channel(ADM_CHAT_CHANNEL_ID)
+        if adm_channel:
+            await adm_channel.send(
+                f"⚠️ Suspeita detectada via **/kd**:\n"
+                f"Usuário: {ctx.author.mention} (ID: {ctx.author.id})\n"
+                f"Gamertag: **{gamertag}** ({plataforma})\n"
+                f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
+                f"{make_links(gamertag, plataforma, pid, nid)}"
+            )
+
     # Log no canal de logs
     logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
     if logs_ch:
@@ -1322,8 +1332,7 @@ async def kd(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
             f"📋 **Registro via /kd** | {ctx.author.mention} (`{ctx.author.id}`) | Ação: **{action_log}**\n"
             f"Gamertag: `{gamertag}` | Plataforma: `{plataforma}`\n"
             f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | "
-            f"[Stats](<https://gametools.network/stats/{plataforma}/name/{gamertag}?game=bf6>) | "
-            f"[JSON](<{stats_url_log}>)"
+            f"{make_links(gamertag, plataforma, pid, nid)}"
         )
 
     kd_modos = extract_kd_by_mode(data)
@@ -1534,16 +1543,20 @@ async def suspeitos(ctx: discord.ApplicationContext):
             gt       = '?'
             plat     = '?'
             reg_at   = '?'
+            info     = {}
             for uid, info in users.items():
                 if uid == str(member.id):
                     gt     = info.get('gamertag', '?')
                     plat   = info.get('platform', '?')
                     reg_at = info.get('registered_at', '?')[:10]
                     break
-            stats_url = f"<https://gametools.network/stats/{plat}/name/{gt}?game=bf6>"
+            else:
+                info = {}
+            sus_pid = info.get('persona_id') if info.get('gamertag') else None
+            sus_nid = info.get('nucleus_id') if info.get('gamertag') else None
             linhas.append(
                 f"- {member.mention} (`{gt}` | {plat}) | Role: **{role.name}** | "
-                f"Cadastrado: {reg_at} | {stats_url}"
+                f"Cadastrado: {reg_at} | {make_links(gt, plat, sus_pid, sus_nid)}"
             )
 
     if not linhas:
@@ -1567,10 +1580,15 @@ async def suspeitos(ctx: discord.ApplicationContext):
         await ctx.followup.send(m, ephemeral=False)
 
 @bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound):
-        await ctx.send("Comando desconhecido. Use `/ajuda`.")
+async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException):
+    """Handler de erros para slash commands."""
+    if isinstance(error, discord.errors.CheckFailure):
+        await ctx.respond("❌ Você não tem permissão para usar este comando.", ephemeral=True)
     else:
-        print(f"Erro: {error}")
+        print(f"[ERRO SLASH] {ctx.command}: {error}")
+        try:
+            await ctx.respond("❌ Ocorreu um erro inesperado. Tente novamente.", ephemeral=True)
+        except Exception:
+            pass
 
 bot.run(TOKEN)
