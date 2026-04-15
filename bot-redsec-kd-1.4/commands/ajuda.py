@@ -1,0 +1,33 @@
+import discord
+from config import (
+    BOT_SPAM_CHANNEL_ID, REGISTER_CHANNEL_ID, GIF_EA_ID,
+)
+
+
+def setup_ajuda(bot: discord.Bot):
+
+    @bot.slash_command(name="ajuda", description="Mostra como usar o bot")
+    async def ajuda(ctx: discord.ApplicationContext):
+        spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
+        spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
+
+        register_channel = bot.get_channel(REGISTER_CHANNEL_ID)
+        register_mention = register_channel.mention if register_channel else f"<#{REGISTER_CHANNEL_ID}>"
+
+        embed = discord.Embed(
+            title="Como usar o bot de KD Redsec",
+            description=(
+                f"**Passo 1:** Vá até o canal `#registrar-kd-redsec⭕` ({register_mention}) e clique no botão **⭕ Registre-se aqui!**\n"
+                "Após registrar, o bot atualiza suas roles automaticamente a cada **24 horas**.\n\n"
+                f"**Comandos manuais** (use em {spam_mention}):\n"
+                f"→ `/kd [SeuID] [plataforma]` — busca seu KD e atribui a role\n"
+                f"→ `/stats [IDdaEA] [plataforma]` — stats completos (KD, Human%, Accuracy...)\n"
+                f"→ `/minha_conta` — veja seus próprios stats e dados de cadastro\n\n"
+                "**Plataformas válidas:** `pc` · `psn` · `xbox`\n\n"
+                "**Como pegar seu ID da EA?** Veja o GIF abaixo!\n\n"
+                "Qualquer dúvida, chama a staff!"
+            ),
+            color=discord.Color.blue()
+        )
+        embed.set_image(url=GIF_EA_ID)
+        await ctx.respond(embed=embed)
