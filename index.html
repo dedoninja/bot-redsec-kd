@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bot Redsec BFBR</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/dedoninja/bot-redsec-kd/main/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -680,7 +681,7 @@
                 <span class="stat-label">Comunidade</span>
             </div>
             <div class="stat-card">
-                <span class="stat-value">v1.3.7</span>
+                <span class="stat-value">v1.4.0</span>
                 <span class="stat-label">Versão</span>
             </div>
         </div>
@@ -768,6 +769,10 @@
                 <div class="cmd-row">
                     <span class="cmd-syntax">/ajuda</span>
                     <span class="cmd-desc">Exibe um resumo de como usar o bot direto no Discord.</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax">/top5 <span class="arg">[modo]</span></span>
+                    <span class="cmd-desc">Exibe o ranking dos 5 jogadores cadastrados com maior KD no modo escolhido (Redsec, Solo, Duo, Squad, Arena ou Gauntlet).</span>
                 </div>
             </div>
 
@@ -965,5 +970,6 @@
         checkBotStatus();
         setInterval(checkBotStatus, 60000); // Re-verifica a cada 60s
     </script>
-</body>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"27a51fc7d1cd4058b900b2eea7bb7061","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ec3f00b5ac54831',t:'MTc3NjE4MjU3NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
