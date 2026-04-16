@@ -60,16 +60,18 @@ async def auto_update_loop(bot: discord.Bot):
             await asyncio.sleep(espera)
             await run_auto_update(bot)
 
-            # Chama atualização do Top 5 após o auto-update (se módulo registrado)
-            if hasattr(bot, "top5_update"):
-                try:
-                    await bot.top5_update(bot)
-                except Exception as e:
-                    print(f"[TOP5] Erro na atualização diária: {e}")
-
         except Exception as e:
             print(f"[AUTO-UPDATE] Erro no loop: {e}")
             await asyncio.sleep(60)
+            continue
+
+        # Chama atualização do Top 5 após o auto-update (se módulo registrado)
+        # Executado fora do try/except do auto-update para não ser suprimido por erros
+        if hasattr(bot, "top5_update"):
+            try:
+                await bot.top5_update(bot)
+            except Exception as e:
+                print(f"[TOP5] Erro na atualização diária: {e}")
 
 
 # ================== RUN AUTO-UPDATE ==================

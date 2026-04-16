@@ -233,6 +233,7 @@ def setup_admin(bot: discord.Bot):
     @bot.slash_command(name="report_salas", description="[ADMIN] Relatório de salas ativas nas categorias monitoradas")
     @discord.default_permissions(administrator=True)
     async def report_salas(ctx: discord.ApplicationContext):
+        await ctx.defer(ephemeral=True)
         guild = bot.get_guild(SERVER_ID)
         if not guild:
             await ctx.followup.send("❌ Servidor não encontrado.", ephemeral=True)
@@ -279,7 +280,7 @@ def setup_admin(bot: discord.Bot):
     @discord.default_permissions(administrator=True)
     async def force_sweep(ctx: discord.ApplicationContext):
         from voice import _temp_voice_channels  # import mutable set from voice module
-        await ctx.followup.send("🧹 Varredura de salas iniciada...", ephemeral=True)
+        await ctx.respond("🧹 Varredura de salas iniciada...", ephemeral=True)
         guild = bot.get_guild(SERVER_ID)
         if not guild:
             await ctx.followup.send("❌ Servidor não encontrado.", ephemeral=True)

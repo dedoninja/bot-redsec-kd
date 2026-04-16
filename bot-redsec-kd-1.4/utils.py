@@ -40,6 +40,17 @@ def extract_kd_by_mode(data: dict) -> dict:
     return resultado
 
 
+def extract_kd_multiplayer(data: dict) -> float:
+    """Extrai o KD do modo Multiplayer (Battlefield) do JSON de stats."""
+    for mode in data.get('gameModes', []):
+        if mode.get('gamemodeName') == 'Multiplayer':
+            try:
+                return float(mode.get('killDeath', 0.0))
+            except (ValueError, TypeError):
+                return 0.0
+    return 0.0
+
+
 def build_stats_embed(data: dict, gamertag: str, platform: str, member=None, registered_at: str = None):
     """Monta o embed padronizado de stats para /stats, /minha_conta e /search_player."""
     kd_val, human_pct = extract_kd_and_human(data)
