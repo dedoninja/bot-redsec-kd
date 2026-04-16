@@ -27,8 +27,20 @@ def setup_kd(bot: discord.Bot):
             )
             return
 
+        # Verificação de ban
+        from commands.banlist import is_banned, get_ban_reason
+        if is_banned(ctx.author.id, "commands"):
+            motivo = get_ban_reason(ctx.author.id, "commands")
+            await ctx.respond(f"❌ Você está banido de usar comandos.\nMotivo: {motivo}", ephemeral=True)
+            return
+        if is_banned(ctx.author.id, "register"):
+            motivo = get_ban_reason(ctx.author.id, "register")
+            await ctx.respond(f"❌ Você está banido de se registrar no bot.\nMotivo: {motivo}", ephemeral=True)
+            return
+
         await ctx.defer()
-        await ctx.respond(
+
+        await ctx.followup.send(
             f"<a:buscabf6:1488347979524997171> Buscando KD **Redsec** de **{gamertag}** ({plataforma})...\n"
             f"*Pode demorar até 1 minuto.*"
         )
@@ -81,16 +93,6 @@ def setup_kd(bot: discord.Bot):
             entry_kd["nucleus_id"] = nid
         users_data[disc_id_str] = entry_kd
         save_users(users_data)
-
-        # Loga suspeita no canal de logs (não mais no canal ADM)
-        if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
-            _logs_sus = bot.get_channel(LOGS_CHANNEL_ID)
-            if _logs_sus:
-                await _logs_sus.send(
-                    f"📋 **Registro via /kd** | ⚠️ Suspeita | {ctx.author.mention} (`{ctx.author.id}`)\n"
-                    f"Gamertag: **{gamertag}** ({plataforma}) | ⚠️ Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
-                    f"{make_links(gamertag, plataforma, pid, nid)}"
-                )
 
         # Log no canal de logs (com ⚠️ se suspeito)
         logs_ch = bot.get_channel(LOGS_CHANNEL_ID)

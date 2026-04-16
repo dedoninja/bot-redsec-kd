@@ -19,6 +19,14 @@ def setup_top5(bot: discord.Bot):
     @discord.option("categoria", description="Modo do Redsec",
                     choices=["Squad", "Duo", "Solo", "Gauntlet"], default="Squad")
     async def top5_command(ctx: discord.ApplicationContext, categoria: str):
+
+        # Verificação de ban
+        from commands.banlist import is_banned, get_ban_reason
+        if is_banned(ctx.author.id, "commands"):
+            motivo = get_ban_reason(ctx.author.id, "commands")
+            await ctx.respond(f"❌ Você está banido de usar comandos.\nMotivo: {motivo}", ephemeral=True)
+            return
+        
         if ctx.channel_id not in (BOT_SPAM_CHANNEL_ID, ADM_COMMANDS_CHANNEL_ID):
             spam_mention = f"<#{BOT_SPAM_CHANNEL_ID}>"
             await ctx.respond(
@@ -113,7 +121,7 @@ async def update_daily_top5(bot: discord.Bot):
 
     # Ordena e mantém Top 5 de cada categoria
     for cat in top_data:
-        top_data[cat] = sorted(top_data[cat], key=lambda x: x["kd"], reverse=True)[:5]
+        top_data[cat] = sorted(top_data[cat], key=lambda x: float(x.get("kd", 0) or 0), reverse=True)[:5]
 
     save_top5(top_data)
     print("[TOP5] top5.json salvo.")
@@ -134,24 +142,23 @@ async def update_daily_top5(bot: discord.Bot):
 # ================== HELPER: EMBED ==================
 
 def _build_top5_embed(players: list, categoria: str) -> discord.Embed:
-    """Monta o embed seguindo o layout exato do print + KD visível"""
-    medals = ["🥇", "🥈", "🥉", "🔹", "🔸"]
+    """Monta o embed de Top 5 para uma categoria — categoria aparece uma vez no título."""
+    medals    = ["🥇", "🥈", "🥉", "🔹", "🔸"]
     emoji_cat = "⭕" if categoria != "Gauntlet" else "🏟️"
 
     embed = discord.Embed(
-        title="🏆 **Top 5 Redsec do Dia**",
-        description="Rank atualizado diariamente por volta das 4:00 (BRT).",
+        title=f"🏆 Top 5 Redsec {categoria} do Dia",
+        description=f"{emoji_cat} Rank atualizado diariamente às 04:00 (BRT).",
         color=0xffac33
     )
 
     for i, player in enumerate(players):
-        medal = medals[i] if i < len(medals) else "▪️"
+        medal   = medals[i] if i < len(medals) else "▪️"
         mention = f"<@{player['discord_id']}>" if player.get("discord_id") else player["gamertag"]
-        kd_val = player.get("kd", 0.0)
-
+        kd_val  = player.get("kd", 0.0)
         embed.add_field(
-            name=f"{emoji_cat} **Redsec {categoria}**",
-            value=f"{medal} {mention} (`{player['gamertag']}` | `{player['platform']}`) — **KD {kd_val:.2f}**",
+            name=f"{medal} #{i+1}",
+            value=f"{mention} (`{player['gamertag']}` | `{player['platform']}`) | KD: **{kd_val:.2f}**",
             inline=False
         )
 

@@ -87,3 +87,13 @@ BASE_STATS_URL = (
 # ==================== BANCO DE DADOS ====================
 DATA_DIR  = "/data" if os.path.exists("/data") else os.path.join(os.path.dirname(__file__), "data")
 DATA_FILE = os.path.join(DATA_DIR, "users.json")
+
+# ==================== BANLIST ====================
+BANS_FILE = os.path.join(DATA_DIR, "bans.json")
+
+# Tipos de ban suportados
+BAN_TYPES = {
+    "voice": "banido de criar salas temporárias",
+    "register": "banido de se registrar no bot",
+    "commands": "banido de usar comandos slash"
+}

@@ -15,6 +15,15 @@ def setup_stats(bot: discord.Bot):
     @discord.option("gamertag", description="ID da EA", required=True)
     @discord.option("plataforma", description="Plataforma", required=True, choices=["pc", "psn", "xbox"])
     async def stats(ctx: discord.ApplicationContext, gamertag: str, plataforma: str):
+
+        # Verificação de ban
+        from commands.banlist import is_banned, get_ban_reason
+        if is_banned(ctx.author.id, "commands"):
+            motivo = get_ban_reason(ctx.author.id, "commands")
+            await ctx.respond(f"❌ Você está banido de usar comandos.\nMotivo: {motivo}", ephemeral=True)
+            return
+
+        
         spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
         spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
 
@@ -23,7 +32,7 @@ def setup_stats(bot: discord.Bot):
             return
 
         await ctx.defer()
-        await ctx.respond(
+        await ctx.followup.send(
             f"<a:buscabf6:1488347979524997171> Buscando stats de **{gamertag}** ({plataforma})...\n"
             f"*Pode demorar até 1 minuto.*"
         )

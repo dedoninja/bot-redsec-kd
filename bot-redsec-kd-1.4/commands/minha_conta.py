@@ -13,6 +13,15 @@ def setup_minha_conta(bot: discord.Bot):
 
     @bot.slash_command(name="minha_conta", description="Mostra seus stats e dados de cadastro")
     async def minha_conta(ctx: discord.ApplicationContext):
+
+        # Verificação de ban
+        from commands.banlist import is_banned, get_ban_reason
+        if is_banned(ctx.author.id, "commands"):
+            motivo = get_ban_reason(ctx.author.id, "commands")
+            await ctx.respond(f"❌ Você está banido de usar comandos.\nMotivo: {motivo}", ephemeral=True)
+            return
+
+        
         spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
         spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
 
@@ -38,7 +47,7 @@ def setup_minha_conta(bot: discord.Bot):
         registered_at = info.get('registered_at', '')
 
         await ctx.defer(ephemeral=True)
-        await ctx.respond(
+        await ctx.followup.send(
             f"<a:buscabf6:1488347979524997171> Buscando seus stats (**{gt}** | {plat})...",
             ephemeral=True
         )

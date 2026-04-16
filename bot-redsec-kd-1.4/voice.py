@@ -22,7 +22,26 @@ async def handle_voice_state_update(bot: discord.Bot, member: discord.Member, be
         return
 
     # ── Entrou num canal de criação ──────────────────────────────────────────
+    # Verificação de ban antes de criar sala
     if after.channel and after.channel.id in VOICE_TRIGGER_MAP:
+        from commands.banlist import is_banned, get_ban_reason
+        if is_banned(member.id, "voice"):
+            motivo = get_ban_reason(member.id, "voice")
+            try:
+                await member.send(f"❌ Você está banido de criar salas temporárias.\nMotivo: {motivo}")
+            except Exception:
+                pass
+            
+            # Desconecta o usuário do canal de voz
+            try:
+                await member.move_to(None)
+            except Exception as e:
+                print(f"[VOICE] Erro ao tentar desconectar o usuário banido {member.name}: {e}")
+            
+            return
+
+    # merged duplicate condition
+
         # Cooldown aplicado APENAS na criação de sala (não afeta deleção)
         agora_ts = time.monotonic()
         ultimo   = _voice_cooldowns.get(member.id, 0)

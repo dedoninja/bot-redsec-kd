@@ -37,6 +37,13 @@ class RegisterModal(Modal):
         gamertag    = self.children[0].value.strip()
         platform_raw = self.children[1].value.strip().lower()
 
+        # Verificação de ban (usa response, não followup — response ainda não foi enviado)
+        from commands.banlist import is_banned, get_ban_reason
+        if is_banned(interaction.user.id, "register"):
+            motivo = get_ban_reason(interaction.user.id, "register")
+            await interaction.response.send_message(f"❌ Você está banido de se registrar no bot.\nMotivo: {motivo}", ephemeral=True)
+            return
+
         if platform_raw not in ['pc', 'psn', 'xbox']:
             await interaction.response.send_message(
                 "❌ Plataforma inválida. Use **pc**, **psn** ou **xbox**.",
@@ -192,7 +199,7 @@ def setup_admin(bot: discord.Bot):
     async def generate_register(ctx: discord.ApplicationContext):
         channel = bot.get_channel(REGISTER_CHANNEL_ID)
         if not channel:
-            await ctx.respond("❌ Canal de registro não encontrado. Verifique o REGISTER_CHANNEL_ID no bot.", ephemeral=True)
+            await ctx.followup.send("❌ Canal de registro não encontrado. Verifique o REGISTER_CHANNEL_ID no bot.", ephemeral=True)
             return
 
         spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
@@ -212,7 +219,7 @@ def setup_admin(bot: discord.Bot):
         embed.set_image(url=GIF_EA_ID)
 
         await channel.send(embed=embed, view=RegisterView(bot))
-        await ctx.respond(f"✅ Painel de registro enviado em {channel.mention}!", ephemeral=True)
+        await ctx.followup.send(f"✅ Painel de registro enviado em {channel.mention}!", ephemeral=True)
 
     @bot.slash_command(name="force_update", description="[ADMIN] Força a atualização de todos os registrados agora")
     @discord.default_permissions(administrator=True)
@@ -220,7 +227,7 @@ def setup_admin(bot: discord.Bot):
         from events import run_auto_update  # local import to avoid circular dependency
         logs_channel = bot.get_channel(LOGS_CHANNEL_ID)
         logs_mention = logs_channel.mention if logs_channel else f"<#{LOGS_CHANNEL_ID}>"
-        await ctx.respond(f"🔄 Atualização forçada iniciada! Acompanhe o resultado em {logs_mention}.", ephemeral=True)
+        await ctx.followup.send(f"🔄 Atualização forçada iniciada! Acompanhe o resultado em {logs_mention}.", ephemeral=True)
         await run_auto_update(bot)
 
     @bot.slash_command(name="report_salas", description="[ADMIN] Relatório de salas ativas nas categorias monitoradas")
@@ -228,7 +235,7 @@ def setup_admin(bot: discord.Bot):
     async def report_salas(ctx: discord.ApplicationContext):
         guild = bot.get_guild(SERVER_ID)
         if not guild:
-            await ctx.respond("❌ Servidor não encontrado.", ephemeral=True)
+            await ctx.followup.send("❌ Servidor não encontrado.", ephemeral=True)
             return
 
         fuso_brt = timezone(timedelta(hours=-3))
@@ -266,13 +273,13 @@ def setup_admin(bot: discord.Bot):
             description=desc,
             color=discord.Color.blue()
         )
-        await ctx.respond(embed=embed)
+        await ctx.followup.send(embed=embed)
 
     @bot.slash_command(name="force_sweep", description="[ADMIN] Deleta agora todas as salas de voz vazias")
     @discord.default_permissions(administrator=True)
     async def force_sweep(ctx: discord.ApplicationContext):
         from voice import _temp_voice_channels  # import mutable set from voice module
-        await ctx.respond("🧹 Varredura de salas iniciada...", ephemeral=True)
+        await ctx.followup.send("🧹 Varredura de salas iniciada...", ephemeral=True)
         guild = bot.get_guild(SERVER_ID)
         if not guild:
             await ctx.followup.send("❌ Servidor não encontrado.", ephemeral=True)
@@ -312,20 +319,27 @@ def setup_admin(bot: discord.Bot):
         try:
             target_id = int(discord_id)
         except ValueError:
-            await ctx.respond("❌ Discord ID inválido. Use apenas números.", ephemeral=True)
+            await ctx.followup.send("❌ Discord ID inválido. Use apenas números.", ephemeral=True)
             return
 
         guild = bot.get_guild(SERVER_ID)
         if not guild:
-            await ctx.respond("❌ Servidor não encontrado.", ephemeral=True)
+            await ctx.followup.send("❌ Servidor não encontrado.", ephemeral=True)
             return
 
         member = guild.get_member(target_id)
         if not member:
-            await ctx.respond(f"❌ Usuário `{discord_id}` não encontrado no servidor.", ephemeral=True)
+            await ctx.followup.send(f"❌ Usuário `{discord_id}` não encontrado no servidor.", ephemeral=True)
             return
 
-        await ctx.respond(
+        # Verificação de ban no force_register
+        from commands.banlist import is_banned, get_ban_reason
+        if is_banned(target_id, "register"):
+            motivo = get_ban_reason(target_id, "register")
+            await ctx.followup.send(f"❌ Este usuário está banido de se registrar.\nMotivo: {motivo}", ephemeral=True)
+            return
+
+        await ctx.followup.send(
             f"<a:buscabf6:1488347979524997171> Registrando **{gamertag}** ({plataforma}) para {member.mention}...",
             ephemeral=True
         )
@@ -407,7 +421,7 @@ def setup_admin(bot: discord.Bot):
     @discord.option("gamertag", description="Gamertag no banco de dados (deixe em branco para buscar por Discord ID)", required=False)
     async def force_remove(ctx: discord.ApplicationContext, discord_id: str = None, gamertag: str = None):
         if not discord_id and not gamertag:
-            await ctx.respond("❌ Informe ao menos um: **discord_id** ou **gamertag**.", ephemeral=True)
+            await ctx.followup.send("❌ Informe ao menos um: **discord_id** ou **gamertag**.", ephemeral=True)
             return
 
         users        = load_users()
@@ -419,7 +433,7 @@ def setup_admin(bot: discord.Bot):
                 removed_id   = discord_id
                 removed_info = users[discord_id]
             else:
-                await ctx.respond(f"❌ Discord ID `{discord_id}` não encontrado no registro.", ephemeral=True)
+                await ctx.followup.send(f"❌ Discord ID `{discord_id}` não encontrado no registro.", ephemeral=True)
                 return
         else:
             gamertag_lower = gamertag.lower()
@@ -429,7 +443,7 @@ def setup_admin(bot: discord.Bot):
                     removed_info = info
                     break
             if not removed_id:
-                await ctx.respond(f"❌ Gamertag `{gamertag}` não encontrada no registro.", ephemeral=True)
+                await ctx.followup.send(f"❌ Gamertag `{gamertag}` não encontrada no registro.", ephemeral=True)
                 return
 
         users.pop(removed_id, None)
@@ -439,7 +453,7 @@ def setup_admin(bot: discord.Bot):
         plat = removed_info.get('platform', '?')
         reg  = removed_info.get('registered_at', '?')[:10]
 
-        await ctx.respond(
+        await ctx.followup.send(
             f"✅ Usuário removido do registro!\n"
             f"Discord: <@{removed_id}> (`{removed_id}`)\n"
             f"Gamertag: `{gt}` | Plataforma: `{plat}` | Registrado em: `{reg}`",
@@ -460,7 +474,7 @@ def setup_admin(bot: discord.Bot):
     @discord.option("gamertag",   description="Gamertag (ID da EA) cadastrada no banco", required=False)
     async def search_player(ctx: discord.ApplicationContext, discord_id: str = None, gamertag: str = None):
         if not discord_id and not gamertag:
-            await ctx.respond("❌ Informe ao menos um: **discord_id** ou **gamertag**.", ephemeral=True)
+            await ctx.followup.send("❌ Informe ao menos um: **discord_id** ou **gamertag**.", ephemeral=True)
             return
 
         users      = load_users()
@@ -472,7 +486,7 @@ def setup_admin(bot: discord.Bot):
                 found_id   = discord_id
                 found_info = users[discord_id]
             else:
-                await ctx.respond(f"❌ Discord ID `{discord_id}` não encontrado no registro.", ephemeral=True)
+                await ctx.followup.send(f"❌ Discord ID `{discord_id}` não encontrado no registro.", ephemeral=True)
                 return
         else:
             for uid, info in users.items():
@@ -481,7 +495,7 @@ def setup_admin(bot: discord.Bot):
                     found_info = info
                     break
             if not found_id:
-                await ctx.respond(f"❌ Gamertag `{gamertag}` não encontrada no registro.", ephemeral=True)
+                await ctx.followup.send(f"❌ Gamertag `{gamertag}` não encontrada no registro.", ephemeral=True)
                 return
 
         gt            = found_info.get('gamertag', '?')
@@ -491,7 +505,7 @@ def setup_admin(bot: discord.Bot):
         nucleus_id    = found_info.get('nucleus_id', '')
 
         await ctx.defer(ephemeral=True)
-        await ctx.respond(
+        await ctx.followup.send(
             f"<a:buscabf6:1488347979524997171> Buscando stats de **{gt}** ({plat})...",
             ephemeral=True
         )

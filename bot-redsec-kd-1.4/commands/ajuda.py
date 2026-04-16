@@ -8,6 +8,15 @@ def setup_ajuda(bot: discord.Bot):
 
     @bot.slash_command(name="ajuda", description="Mostra como usar o bot")
     async def ajuda(ctx: discord.ApplicationContext):
+
+        # Verificação de ban
+        from commands.banlist import is_banned, get_ban_reason
+        if is_banned(ctx.author.id, "commands"):
+            motivo = get_ban_reason(ctx.author.id, "commands")
+            await ctx.respond(f"❌ Você está banido de usar comandos.\nMotivo: {motivo}", ephemeral=True)
+            return
+
+        
         spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
         spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
 
