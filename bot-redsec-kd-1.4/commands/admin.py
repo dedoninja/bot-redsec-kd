@@ -199,7 +199,7 @@ def setup_admin(bot: discord.Bot):
     async def generate_register(ctx: discord.ApplicationContext):
         channel = bot.get_channel(REGISTER_CHANNEL_ID)
         if not channel:
-            await ctx.followup.send("❌ Canal de registro não encontrado. Verifique o REGISTER_CHANNEL_ID no bot.", ephemeral=True)
+            await ctx.respond("❌ Canal de registro não encontrado. Verifique o REGISTER_CHANNEL_ID no bot.", ephemeral=True)
             return
 
         spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
@@ -219,7 +219,7 @@ def setup_admin(bot: discord.Bot):
         embed.set_image(url=GIF_EA_ID)
 
         await channel.send(embed=embed, view=RegisterView(bot))
-        await ctx.followup.send(f"✅ Painel de registro enviado em {channel.mention}!", ephemeral=True)
+        await ctx.respond(f"✅ Painel de registro enviado em {channel.mention}!", ephemeral=True)
 
     @bot.slash_command(name="force_update", description="[ADMIN] Força a atualização de todos os registrados agora")
     @discord.default_permissions(administrator=True)
@@ -227,7 +227,7 @@ def setup_admin(bot: discord.Bot):
         from events import run_auto_update  # local import to avoid circular dependency
         logs_channel = bot.get_channel(LOGS_CHANNEL_ID)
         logs_mention = logs_channel.mention if logs_channel else f"<#{LOGS_CHANNEL_ID}>"
-        await ctx.followup.send(f"🔄 Atualização forçada iniciada! Acompanhe o resultado em {logs_mention}.", ephemeral=True)
+        await ctx.respond(f"🔄 Atualização forçada iniciada! Acompanhe o resultado em {logs_mention}.", ephemeral=True)
         await run_auto_update(bot)
 
     @bot.slash_command(name="report_salas", description="[ADMIN] Relatório de salas ativas nas categorias monitoradas")
@@ -421,6 +421,7 @@ def setup_admin(bot: discord.Bot):
     @discord.option("discord_id", description="Discord ID do usuário (deixe em branco para buscar por gamertag)", required=False)
     @discord.option("gamertag", description="Gamertag no banco de dados (deixe em branco para buscar por Discord ID)", required=False)
     async def force_remove(ctx: discord.ApplicationContext, discord_id: str = None, gamertag: str = None):
+        await ctx.defer(ephemeral=True)
         if not discord_id and not gamertag:
             await ctx.followup.send("❌ Informe ao menos um: **discord_id** ou **gamertag**.", ephemeral=True)
             return
@@ -474,6 +475,7 @@ def setup_admin(bot: discord.Bot):
     @discord.option("discord_id", description="Discord ID do usuário", required=False)
     @discord.option("gamertag",   description="Gamertag (ID da EA) cadastrada no banco", required=False)
     async def search_player(ctx: discord.ApplicationContext, discord_id: str = None, gamertag: str = None):
+        await ctx.defer(ephemeral=True)
         if not discord_id and not gamertag:
             await ctx.followup.send("❌ Informe ao menos um: **discord_id** ou **gamertag**.", ephemeral=True)
             return
@@ -505,7 +507,6 @@ def setup_admin(bot: discord.Bot):
         persona_id    = found_info.get('persona_id', '')
         nucleus_id    = found_info.get('nucleus_id', '')
 
-        await ctx.defer(ephemeral=True)
         await ctx.followup.send(
             f"<a:buscabf6:1488347979524997171> Buscando stats de **{gt}** ({plat})...",
             ephemeral=True

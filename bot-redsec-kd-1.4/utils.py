@@ -41,14 +41,15 @@ def extract_kd_by_mode(data: dict) -> dict:
 
 
 def extract_kd_multiplayer(data: dict) -> float:
-    """Extrai o KD do modo Multiplayer (Battlefield) do JSON de stats."""
-    for mode in data.get('gameModes', []):
-        if mode.get('gamemodeName') == 'Multiplayer':
-            try:
-                return float(mode.get('killDeath', 0.0))
-            except (ValueError, TypeError):
-                return 0.0
-    return 0.0
+    """Extrai o KD do Battlefield: usa o primeiro killDeath do JSON (apenas vs humanos).
+    Não usa o killDeath de gamemodeName Multiplayer pois inclui farm com bots.
+    O primeiro killDeath no JSON representa apenas partidas contra humanos.
+    """
+    try:
+        raw = data.get('killDeath', 0.0)
+        return float(raw) if raw else 0.0
+    except (ValueError, TypeError):
+        return 0.0
 
 
 def build_stats_embed(data: dict, gamertag: str, platform: str, member=None, registered_at: str = None):

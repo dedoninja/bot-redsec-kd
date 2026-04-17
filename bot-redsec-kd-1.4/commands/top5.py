@@ -82,6 +82,11 @@ async def update_daily_top5(bot: discord.Bot):
     top_data = {"squad": [], "duo": [], "solo": [], "gauntlet": [], "battlefield": []}
 
     for disc_id, user_info in users.items():
+        # Ignorar usuários com role fazendeiro
+        guild = bot.guilds[0] if bot.guilds else None
+        member = guild.get_member(int(disc_id)) if guild else None
+        if member and any(role.id == 1489771074945155113 for role in member.roles):
+            continue
         gamertag   = user_info.get("gamertag")
         platform   = user_info.get("platform")
         persona_id = user_info.get("persona_id")
@@ -159,11 +164,13 @@ def _build_top5_embed(players: list, categoria: str) -> discord.Embed:
     """Monta o embed de Top 5 para uma categoria — categoria aparece uma vez no título."""
     medals    = ["🥇", "🥈", "🥉", "🔹", "🔸"]
     emoji_cat = "⭕" if categoria != "Gauntlet" else "🏟️"
+    # Cores: Gauntlet usa cor diferente dos modos Redsec
+    color     = 0xd2cfd4 if categoria == "Gauntlet" else 0xf92f60
 
     embed = discord.Embed(
         title=f"🏆 Top 5 Redsec {categoria} do Dia",
         description=f"{emoji_cat} Rank atualizado diariamente às 04:00 (BRT).",
-        color=0xffac33
+        color=color
     )
 
     for i, player in enumerate(players):
@@ -186,7 +193,7 @@ def _build_top5bf_embed(players: list) -> discord.Embed:
     medals = ["🥇", "🥈", "🥉", "🔹", "🔸"]
 
     embed = discord.Embed(
-        title="🪖 Top 5 Battlefield do Dia",
+        title="🏆 Top 5 Battlefield do Dia",
         description="🪖 Rank atualizado diariamente às 04:00 (BRT).",
         color=0x50be4a
     )

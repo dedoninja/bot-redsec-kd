@@ -122,8 +122,8 @@ def setup_banlist(bot: discord.Bot):
         for user_id, data in bans.items():
             types_str = ", ".join([BAN_TYPES.get(t, t) for t in data.get("types", [])])
             embed.add_field(
-                name=f"Usuário <@{user_id}>",
-                value=f"Tipos: **{types_str}**\nBanido em: {data.get('banned_at', 'Desconhecido')[:10]}",
+                name=f"Usuário",
+                value=f"<@{user_id}> (`{user_id}`)\nTipos: **{types_str}**\nBanido em: {data.get('banned_at', 'Desconhecido')[:10]}",
                 inline=False
             )
         await ctx.respond(embed=embed, ephemeral=False)
