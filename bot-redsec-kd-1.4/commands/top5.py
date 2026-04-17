@@ -87,6 +87,7 @@ async def update_daily_top5(bot: discord.Bot):
         member = guild.get_member(int(disc_id)) if guild else None
         if member and any(role.id == 1489771074945155113 for role in member.roles):
             continue
+
         gamertag   = user_info.get("gamertag")
         platform   = user_info.get("platform")
         persona_id = user_info.get("persona_id")
@@ -164,7 +165,6 @@ def _build_top5_embed(players: list, categoria: str) -> discord.Embed:
     """Monta o embed de Top 5 para uma categoria — categoria aparece uma vez no título."""
     medals    = ["🥇", "🥈", "🥉", "🔹", "🔸"]
     emoji_cat = "⭕" if categoria != "Gauntlet" else "🏟️"
-    # Cores: Gauntlet usa cor diferente dos modos Redsec
     color     = 0xd2cfd4 if categoria == "Gauntlet" else 0xf92f60
 
     embed = discord.Embed(
