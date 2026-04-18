@@ -17,6 +17,7 @@ from commands.suspeitos   import setup_suspeitos
 from commands.admin       import setup_admin
 from commands.top5        import setup_top5
 from commands.banlist     import setup_banlist
+from commands.duplicados  import setup_duplicados
 
 # ================== FLASK DUMMY ==================
 app = Flask(__name__)
@@ -64,6 +65,7 @@ setup_suspeitos(bot)
 setup_admin(bot)
 setup_top5(bot)
 setup_banlist(bot)
+setup_duplicados(bot)
 
 # ================== INICIALIZAÇÃO ==================
 bot.run(TOKEN)

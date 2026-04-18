@@ -40,14 +40,27 @@ def extract_kd_by_mode(data: dict) -> dict:
     return resultado
 
 
-def extract_kd_multiplayer(data: dict) -> float:
-    """Extrai o KD do modo Multiplayer (Battlefield)."""
+def extract_infantry_kd(data: dict) -> float:
+    """Extrai o KD de infantaria (infantryKillDeath) para o Top 5 Battlefield.
+    Prioriza o campo direto no raiz do JSON, com fallback mínimo."""
     try:
-        for mode in data.get("result", {}).get("gameModes", []):
-            if mode.get("gamemodeName") == "Multiplayer":
-                return float(mode.get("killDeath", 0) or 0)
-    except (ValueError, TypeError):
+        # Prioridade 1: Campo direto no raiz do JSON (mais comum)
+        if 'infantryKillDeath' in data:
+            return float(data.get('infantryKillDeath', 0) or 0)
+
+        # Fallback 2: Procura dentro de gameModes (caso esteja aninhado)
+        for mode in data.get('gameModes', []):
+            if mode.get('infantryKillDeath') is not None:
+                return float(mode.get('infantryKillDeath', 0) or 0)
+
+        # Fallback 3: Procura em gameModeGroups
+        for group in data.get('gameModeGroups', []):
+            if group.get('infantryKillDeath') is not None:
+                return float(group.get('infantryKillDeath', 0) or 0)
+
+    except (ValueError, TypeError, AttributeError, KeyError):
         pass
+
     return 0.0
 
 
@@ -66,13 +79,15 @@ def build_stats_embed(data: dict, gamertag: str, platform: str, member=None, reg
     else:
         color = discord.Color.red()
 
-    # Accuracy e headshots do JSON
+    # Accuracy, headshots e KD de infantaria do JSON
     try:
-        accuracy  = data.get('accuracy', '0%')
-        headshots = data.get('headshots', '0%')
+        accuracy     = data.get('accuracy', '0%')
+        headshots    = data.get('headshots', '0%')
+        infantry_kd  = float(data.get('infantryKillDeath', 0.0) or 0.0)
     except Exception:
-        accuracy  = '0%'
-        headshots = '0%'
+        accuracy     = '0%'
+        headshots    = '0%'
+        infantry_kd  = 0.0
 
     # winPercent do modo Redsec
     win_pct = '0%'
@@ -101,10 +116,11 @@ def build_stats_embed(data: dict, gamertag: str, platform: str, member=None, reg
     embed.add_field(name="🥇 1° lugar",         value=f"**{win_pct}**",        inline=True)
 
     # KD por modo inline
-    embed.add_field(name="KD Squad",    value=f"{kd_modos['Squad']:.2f}",   inline=True)
-    embed.add_field(name="KD Duo",      value=f"{kd_modos['Duo']:.2f}",     inline=True)
-    embed.add_field(name="KD Solo",     value=f"{kd_modos['Solo']:.2f}",    inline=True)
-    embed.add_field(name="KD Gauntlet", value=f"{kd_modos['Gauntlet']:.2f}",inline=True)
+    embed.add_field(name="KD Squad",      value=f"{kd_modos['Squad']:.2f}",   inline=True)
+    embed.add_field(name="KD Duo",        value=f"{kd_modos['Duo']:.2f}",     inline=True)
+    embed.add_field(name="KD Solo",       value=f"{kd_modos['Solo']:.2f}",    inline=True)
+    embed.add_field(name="KD Gauntlet",   value=f"{kd_modos['Gauntlet']:.2f}",inline=True)
+    embed.add_field(name="KD Infantaria", value=f"{infantry_kd:.2f}",         inline=True)
 
     # Rodapé com data de cadastro se disponível
     footer_parts = []
@@ -121,12 +137,6 @@ def build_stats_embed(data: dict, gamertag: str, platform: str, member=None, reg
 
 
 def classificar_suspeita(human_pct: float) -> tuple:
-    """
-    Retorna (role_id_ou_None, nome_interno, nome_publico).
-    nome_interno: valor real — usado no canal ADM e no /hc.
-    nome_publico: o que o jogador vê ao se registrar ou usar /kd.
-    Jogadores suspeitos veem apenas 'Suspeito', sem saber o nível exato.
-    """
     if human_pct == 0.0:
         return None, "Human% indisponível", "Human% indisponível"
     elif human_pct >= 70.0:
@@ -140,7 +150,6 @@ def classificar_suspeita(human_pct: float) -> tuple:
 
 
 async def apply_roles(member: discord.Member, guild: discord.Guild, kd: float, human_pct: float) -> dict:
-    """Aplica roles de KD e suspeita. Retorna dict com as mudanças."""
     changes = {}
 
     # --- Suspeita ---

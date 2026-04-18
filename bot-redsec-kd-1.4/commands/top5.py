@@ -5,7 +5,7 @@ from datetime import datetime
 from config import BOT_SPAM_CHANNEL_ID, ADM_COMMANDS_CHANNEL_ID
 from database import load_top5, save_top5, load_users
 from api import fetch_stats, make_session
-from utils import extract_kd_by_mode, extract_kd_multiplayer
+from utils import extract_kd_by_mode, extract_infantry_kd
 from config import BASE_STATS_URL
 
 # ================== SETUP ==================
@@ -14,10 +14,10 @@ def setup_top5(bot: discord.Bot):
 
     @bot.slash_command(
         name="top5",
-        description="Mostra o Top 5 do dia (Redsec: Squad, Duo, Solo, Gauntlet ou Battlefield)"
+        description="Mostra o Top 5 Redsec do dia (Squad, Duo, Solo, Gauntlet ou KD de Infantaria)"
     )
     @discord.option("categoria", description="Modo",
-                    choices=["Squad", "Duo", "Solo", "Gauntlet", "Battlefield"], default="Squad")
+                    choices=["Squad", "Duo", "Solo", "Gauntlet", "KD de Infantaria"], default="Squad")
     async def top5_command(ctx: discord.ApplicationContext, categoria: str):
 
         # Verificação de ban
@@ -36,10 +36,10 @@ def setup_top5(bot: discord.Bot):
             return
 
         data = load_top5()
-        key = categoria.lower()
+        key = "infantryKD" if categoria == "KD de Infantaria" else categoria.lower()
 
         if not data.get(key):
-            nome_exibido = "Battlefield" if categoria == "Battlefield" else f"Redsec {categoria}"
+            nome_exibido = "KD de Infantaria" if categoria == "KD de Infantaria" else f"Redsec {categoria}"
             await ctx.respond(
                 f"ℹ️ Ainda não há dados de Top 5 para **{nome_exibido}** hoje.\n"
                 f"O ranking é atualizado automaticamente às 04:00 (BRT).",
@@ -47,8 +47,8 @@ def setup_top5(bot: discord.Bot):
             )
             return
 
-        if categoria == "Battlefield":
-            embed = _build_top5bf_embed(data[key])
+        if categoria == "KD de Infantaria":
+            embed = _build_top5_infantry_embed(data[key])
         else:
             embed = _build_top5_embed(data[key], categoria)
         await ctx.respond(embed=embed)
@@ -79,7 +79,7 @@ async def update_daily_top5(bot: discord.Bot):
     print("[TOP5] Iniciando atualização diária do Top 5...")
 
     users    = load_users()
-    top_data = {"squad": [], "duo": [], "solo": [], "gauntlet": [], "battlefield": []}
+    top_data = {"squad": [], "duo": [], "solo": [], "gauntlet": [], "infantryKD": []}
 
     for disc_id, user_info in users.items():
         # Ignorar usuários com role fazendeiro
@@ -125,9 +125,9 @@ async def update_daily_top5(bot: discord.Bot):
             top_data["solo"].append({**entry_base,    "kd": kd_modos["Solo"]})
             top_data["gauntlet"].append({**entry_base,"kd": kd_modos["Gauntlet"]})
 
-            # KD do modo Multiplayer (Battlefield)
-            kd_bf = extract_kd_multiplayer(data)
-            top_data["battlefield"].append({**entry_base, "kd": kd_bf})
+            # KD de Infantaria
+            kd_infantry = extract_infantry_kd(data)
+            top_data["infantryKD"].append({**entry_base, "kd": kd_infantry})
 
         except Exception as e:
             print(f"[TOP5] Erro ao processar {gamertag}: {e}")
@@ -151,10 +151,10 @@ async def update_daily_top5(bot: discord.Bot):
             embed = _build_top5_embed(players, categoria)
             await spam_channel.send(embed=embed)
 
-        # Envia rank Battlefield separado
-        bf_players = top_data.get("battlefield", [])
-        if bf_players:
-            embed = _build_top5bf_embed(bf_players)
+        # Envia rank Infantry KD separado
+        infantry_players = top_data.get("infantryKD", [])
+        if infantry_players:
+            embed = _build_top5_infantry_embed(infantry_players)
             await spam_channel.send(embed=embed)
 
     print("[TOP5] Atualização concluída com sucesso.")
@@ -186,15 +186,15 @@ def _build_top5_embed(players: list, categoria: str) -> discord.Embed:
     embed.set_footer(text=f"Atualizado em {datetime.now().strftime('%d/%m/%Y %H:%M')} (BRT)")
     return embed
 
-# ================== HELPER: EMBED BATTLEFIELD ==================
+# ================== HELPER: EMBED INFANTRY KD ==================
 
-def _build_top5bf_embed(players: list) -> discord.Embed:
-    """Monta o embed de Top 5 Battlefield (modo Multiplayer)."""
+def _build_top5_infantry_embed(players: list) -> discord.Embed:
+    """Monta o embed de Top 5 Infantry KD"""
     medals = ["🥇", "🥈", "🥉", "🔹", "🔸"]
 
     embed = discord.Embed(
-        title="🏆 Top 5 Battlefield do Dia",
-        description="🪖 Rank atualizado diariamente às 04:00 (BRT).",
+        title="🏆 Top 5 KD de Infantaria do Dia",
+        description="🔫 Rank atualizado diariamente às 04:00 (BRT).",
         color=0x50be4a
     )
 
@@ -204,7 +204,7 @@ def _build_top5bf_embed(players: list) -> discord.Embed:
         kd_val  = player.get("kd", 0.0)
         embed.add_field(
             name=f"{medal} #{i+1}",
-            value=f"{mention} (`{player['gamertag']}` | `{player['platform']}`) | KD: **{kd_val:.2f}**",
+            value=f"{mention} (`{player['gamertag']}` | `{player['platform']}`) | iKD: **{kd_val:.2f}**",
             inline=False
         )
 
