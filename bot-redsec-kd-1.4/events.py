@@ -10,12 +10,13 @@ from database import load_users, save_users
 from api import make_session, make_links, fetch_stats, resolve_player_ids
 from utils import extract_kd_and_human, apply_roles
 from voice import handle_voice_state_update, voice_sweep_loop
-
+from commands.admin import RegisterView, TrocaGametagView
 
 async def on_ready(bot: discord.Bot):
-    from commands.admin import RegisterView  # evita importação circular
+    from commands.admin import RegisterView, TrocaGametagView
     print(f'{bot.user} online!')
     bot.add_view(RegisterView(bot))
+    bot.add_view(TrocaGametagView(bot))
     try:
         await bot.sync_commands()
         print('Comandos slash sincronizados.')

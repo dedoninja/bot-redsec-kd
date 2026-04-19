@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from config import (
     SERVER_ID, REGISTER_CHANNEL_ID, BOT_SPAM_CHANNEL_ID,
     ADM_CHAT_CHANNEL_ID, ADM_COMMANDS_CHANNEL_ID, LOGS_CHANNEL_ID,
+    TROCA_GAMETAG_CHANNEL_ID, RULES_CHANNEL_ID, STAFF_ROLE_ID,
     GIF_EA_ID, GIF_DataShare,
     VOICE_TARGET_CATEGORIES, VOICE_PROTECTED_CHANNELS, VOICE_TRIGGER_MAP,
     VOICE_CATEGORY_NAMES,
@@ -12,6 +13,8 @@ from config import (
 from database import load_users, save_users
 from api import fetch_stats, resolve_player_ids, make_links
 from utils import extract_kd_and_human, extract_kd_by_mode, build_stats_embed, apply_roles
+from views.troca import TrocaGametagView
+from views.relatar_problema import RelatarProblemaView
 
 
 # ================== MODAL DE REGISTRO ==================
@@ -42,6 +45,54 @@ class RegisterModal(Modal):
         if is_banned(interaction.user.id, "register"):
             motivo = get_ban_reason(interaction.user.id, "register")
             await interaction.response.send_message(f"❌ Você está banido de se registrar no bot.\nMotivo: {motivo}", ephemeral=True)
+            return
+
+        # ================== BLOQUEIO DE RE-REGISTRO ==================
+        users = load_users()
+        discord_id = str(interaction.user.id)
+        if discord_id in users:
+            gamertag_atual = users[discord_id].get("gamertag","N/A")
+            plataforma_atual = users[discord_id].get("platform","N/A")
+            # Usuário já cadastrado, não pode alterar via botão
+            spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
+            spam_mention = spam_channel.mention if spam_channel else f"<#{BOT_SPAM_CHANNEL_ID}>"
+            rules_mention = f"<#{RULES_CHANNEL_ID}>"
+            
+            view_troca = TrocaGametagView(bot)
+            await interaction.response.send_message(
+                f"ℹ️ {interaction.user.mention} (`{gamertag_atual}` | `{plataforma_atual}`), você já está cadastrado no bot!\n\n"
+                f"**Para consultar seus stats**, use o comando `/minha_conta` em {spam_mention}.\n"
+                f"**Para consultar stats de outros jogadores**, use o comando `/stats` em {spam_mention}.\n\n"
+                f"**Cadastrou a ID errada?** Você pode solicitar a troca clicando no botão `🔄 Solicitar Troca` abaixo.\n"
+                f"⚠️ Jogadores que forem pegos usando ID que não são deles estão sujeitos a punições e banimentos conforme as regras do servidor ({rules_mention}).\n\n"
+                f"❗**Observação:** Caso você tenha cadastrado a ID errada por engano e solicite a troca, **nenhuma punição será aplicada**. "
+                f"Porém, se for denunciado ou identificado o uso indevido de ID, medidas administrativas serão tomadas, podendo gerar **banimento do servidor** ou **limitação do uso do bot**.",
+                ephemeral=True,
+                view=TrocaGametagView(bot)
+            )
+            return
+
+        # ================== VERIFICAÇÃO DE EA ID DUPLICADA ==================
+        # Verifica se a EA ID informada já está cadastrada em outro Discord ID
+        ea_id_duplicada = False
+        discord_id_dono = None
+        for user_id, user_data in users.items():
+            if user_id != discord_id and user_data.get("gamertag", "").lower() == gamertag.lower():
+                ea_id_duplicada = True
+                discord_id_dono = user_id
+                break
+        
+        if ea_id_duplicada:
+            rules_mention = f"<#{RULES_CHANNEL_ID}>"
+            await interaction.response.send_message(
+                f"⚠️ **A EA ID `{gamertag}` já está cadastrada em outro jogador!**\n\n"
+                f"Se você acredita que isso é um engano e essa é realmente a sua ID, "
+                f"clique no botão abaixo para relatar o problema à Staff.\n\n"
+                f"⚠️ **Atenção:** Usar ID que não é sua é uma violação das regras do servidor ({rules_mention}) "
+                f"e pode resultar em **banimento**.",
+                view=RelatarProblemaView(bot),
+                ephemeral=True
+            )
             return
 
         if platform_raw not in ['pc', 'psn', 'xbox']:
@@ -168,10 +219,13 @@ class RegisterModal(Modal):
             f"{nota_modal}",
             ephemeral=True
         )
+
         logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
         if logs_ch:
-            is_sus_log  = changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]
+            is_sus_log = changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]
+
             human_label = f"⚠️ Human%: **{human_pct:.2f}%**" if is_sus_log else f"Human%: **{human_pct:.2f}%**"
+
             await logs_ch.send(
                 f"📋 **Registro** | {interaction.user.mention} (`{interaction.user.id}`) | Ação: **{action}**\n"
                 f"Gamertag: `{gamertag}` | Plataforma: `{platform_raw}`\n"
@@ -547,3 +601,75 @@ def setup_admin(bot: discord.Bot):
         embed.add_field(name="📡 API JSON",      value=api_url,             inline=False)
 
         await ctx.followup.send(embed=embed, ephemeral=True)
+
+# ================== BOTÃO CONFIRMAR TROCA GAMERTAG ==================
+
+async def force_register_internal(bot, discord_id, gamertag, plataforma, interaction):
+    from database import load_users, save_users
+    from api import fetch_stats, resolve_player_ids
+    from utils import extract_kd_and_human, apply_roles
+    from config import SERVER_ID
+
+    guild = bot.get_guild(SERVER_ID)
+    if not guild:
+        try:
+            await interaction.followup.send("❌ Servidor não encontrado.", ephemeral=True)
+        except:
+            pass
+        return
+
+    try:
+        target_id = int(discord_id)
+    except:
+        try:
+            await interaction.followup.send("❌ ID inválido.", ephemeral=True)
+        except:
+            pass
+        return
+
+    member = guild.get_member(target_id)
+    if not member:
+        try:
+            await interaction.followup.send("❌ Usuário não encontrado.", ephemeral=True)
+        except:
+            pass
+        return
+
+    data = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
+
+    if not data or data == "api_error":
+        try:
+            await interaction.followup.send("❌ Erro ao buscar stats.", ephemeral=True)
+        except:
+            pass
+        return
+
+    kd_val, human_pct = extract_kd_and_human(data)
+
+    users = load_users()
+
+    pid, nid = await asyncio.to_thread(resolve_player_ids, gamertag)
+
+    entry = {
+        "gamertag": gamertag,
+        "platform": plataforma,
+        "registered_at": datetime.utcnow().isoformat()
+    }
+
+    if pid and nid:
+        entry["persona_id"] = pid
+        entry["nucleus_id"] = nid
+
+    users[str(target_id)] = entry
+    save_users(users)
+
+    await apply_roles(member, guild, kd_val, human_pct)
+
+    try:
+        await interaction.followup.send(
+            f"✅ **{member.display_name}** aprovado com sucesso!\n"
+            f"Gamertag: **{gamertag}** ({plataforma})",
+            ephemeral=True
+        )
+    except:
+        pass
