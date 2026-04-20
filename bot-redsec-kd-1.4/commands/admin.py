@@ -8,10 +8,10 @@ from config import (
     TROCA_GAMETAG_CHANNEL_ID, RULES_CHANNEL_ID, STAFF_ROLE_ID,
     GIF_EA_ID, GIF_DataShare,
     VOICE_TARGET_CATEGORIES, VOICE_PROTECTED_CHANNELS, VOICE_TRIGGER_MAP,
-    VOICE_CATEGORY_NAMES,
+    VOICE_CATEGORY_NAMES, BASE_STATS_URL,
 )
 from database import load_users, save_users
-from api import fetch_stats, resolve_player_ids, make_links
+from api import fetch_stats, resolve_player_ids, make_links, make_session
 from utils import extract_kd_and_human, extract_kd_by_mode, build_stats_embed, apply_roles
 from views.troca import TrocaGametagView
 from views.relatar_problema import RelatarProblemaView
@@ -368,7 +368,9 @@ def setup_admin(bot: discord.Bot):
     @discord.option("discord_id", description="ID do Discord do usuário (ex: 186518341920227337)", required=True)
     @discord.option("gamertag", description="ID da EA do usuário", required=True)
     @discord.option("plataforma", description="Plataforma", required=True, choices=["pc", "psn", "xbox"])
-    async def force_register(ctx: discord.ApplicationContext, discord_id: str, gamertag: str, plataforma: str):
+    @discord.option("playerid_persona_id", description="[OPCIONAL] PlayerID/PersonaID do usuário (para busca direta)", required=False)
+    @discord.option("nucleus_id", description="[OPCIONAL] NucleusID do usuário (para busca direta)", required=False)
+    async def force_register(ctx: discord.ApplicationContext, discord_id: str, gamertag: str, plataforma: str, playerid_persona_id: str = None, nucleus_id: str = None):
         await ctx.defer(ephemeral=True)
 
         try:
@@ -399,7 +401,23 @@ def setup_admin(bot: discord.Bot):
             ephemeral=True
         )
 
-        data = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
+        # Se persona_id e nucleus_id foram fornecidos, usa busca direta
+        if playerid_persona_id and nucleus_id:
+            session = make_session()
+            try:
+                url = f"{BASE_STATS_URL}&playerid={playerid_persona_id}&nucleus_id={nucleus_id}&platform={plataforma}"
+                resp = await asyncio.to_thread(session.get, url, 15)
+                if resp.status_code == 200:
+                    data = resp.json()
+                elif resp.status_code == 500:
+                    data = "api_error"
+                else:
+                    data = None
+            except Exception:
+                data = "api_error"
+        else:
+            # Busca tradicional por gamertag
+            data = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
 
         if data == "api_error":
             await ctx.followup.send("⚠️ A API de stats está instável. Tente novamente em alguns minutos.", ephemeral=True)
@@ -424,7 +442,14 @@ def setup_admin(bot: discord.Bot):
 
         users     = load_users()
         old_entry = users.get(str(target_id))
-        pid, nid  = await asyncio.to_thread(resolve_player_ids, gamertag)
+        
+        # Se IDs foram fornecidos manualmente, usa eles; senão, resolve via API
+        if playerid_persona_id and nucleus_id:
+            pid = playerid_persona_id
+            nid = nucleus_id
+        else:
+            pid, nid = await asyncio.to_thread(resolve_player_ids, gamertag)
+        
         entry_fr  = {
             "gamertag":      gamertag,
             "platform":      plataforma,
@@ -601,6 +626,104 @@ def setup_admin(bot: discord.Bot):
         embed.add_field(name="📡 API JSON",      value=api_url,             inline=False)
 
         await ctx.followup.send(embed=embed, ephemeral=True)
+
+    @bot.slash_command(name="search_ids", description="[ADMIN] Busca todos os IDs registrados de uma gamertag")
+    @discord.default_permissions(administrator=True)
+    @discord.option("gamertag", description="Gamertag para buscar IDs", required=True)
+    async def search_ids(ctx: discord.ApplicationContext, gamertag: str):
+        await ctx.defer(ephemeral=True)
+
+        await ctx.followup.send(
+            f"<a:buscabf6:1488347979524997171> Buscando IDs de **{gamertag}**...",
+            ephemeral=True
+        )
+
+        # Busca todos os IDs da gamertag
+        session = make_session()
+        try:
+            player_url = f"https://api.gametools.network/bf6/player?name={gamertag}"
+            player_resp = await asyncio.to_thread(session.get, player_url, 30)
+            
+            if player_resp.status_code != 200:
+                await ctx.followup.send(
+                    f"❌ Erro ao buscar IDs de **{gamertag}**. Status: {player_resp.status_code}",
+                    ephemeral=True
+                )
+                return
+            
+            player_data = player_resp.json()
+            personas = player_data.get('results', [])
+            
+            if not personas:
+                await ctx.followup.send(
+                    f"❌ Nenhum ID encontrado para **{gamertag}**.",
+                    ephemeral=True
+                )
+                return
+
+            # Para cada persona, busca o KD
+            desc_lines = []
+            for persona in personas:
+                status = persona.get('status', 'N/A')
+                persona_id = persona.get('personaId', 'N/A')
+                nucleus_id = persona.get('nucleusId', 'N/A')
+                username = persona.get('username', 'N/A')
+                platform = persona.get('platform', 'N/A')
+                platform_id = persona.get('platformId', 'N/A')
+
+                # Busca KD para este persona_id
+                kd_value = 0.0
+                kd_emoji = "❌"
+                try:
+                    stats_url = f"https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
+                    stats_resp = await asyncio.to_thread(session.get, stats_url, 15)
+                    if stats_resp.status_code == 200:
+                        stats_data = stats_resp.json()
+                        # Extrai KD do Redsec
+                        for group in stats_data.get('gameModeGroups', []):
+                            if group.get('gamemodeName') == 'Redsec':
+                                try:
+                                    kd_value = float(group.get('killDeath', 0.0))
+                                except (ValueError, TypeError):
+                                    kd_value = 0.0
+                                break
+                        if kd_value == 0.0:
+                            for mode in stats_data.get('gameModes', []):
+                                if mode.get('gamemodeName') in ['Redsec Squad', 'Redsec Duo', 'Redsec Solo']:
+                                    try:
+                                        kd_value = float(mode.get('killDeath', 0.0))
+                                    except (ValueError, TypeError):
+                                        kd_value = 0.0
+                                    if kd_value > 0.0:
+                                        break
+                        if kd_value > 0.0:
+                            kd_emoji = "✅"
+                except Exception:
+                    pass
+
+                desc_lines.append(
+                    f"**Status:** {status}\n"
+                    f"**personaId:** `{persona_id}` | **nucleusId:** `{nucleus_id}`\n"
+                    f"**Gamertag:** `{username}` | `{platform}` | `{platform_id}`\n"
+                    f"**KD:** {kd_value:.2f} {kd_emoji}"
+                )
+
+            description = "\n\n".join(desc_lines)
+            description += f"\n\n📡 API JSON\n<https://api.gametools.network/bf6/player?name={gamertag}>"
+
+            embed = discord.Embed(
+                title=f"🕵️ IDs registradas na gamertag de {gamertag}",
+                description=description,
+                color=discord.Color.blue()
+            )
+
+            await ctx.followup.send(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            await ctx.followup.send(
+                f"❌ Erro ao buscar IDs de **{gamertag}**: {str(e)}",
+                ephemeral=True
+            )
 
 # ================== BOTÃO CONFIRMAR TROCA GAMERTAG ==================
 
