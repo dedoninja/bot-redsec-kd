@@ -406,7 +406,7 @@ def setup_admin(bot: discord.Bot):
             session = make_session()
             try:
                 url = f"{BASE_STATS_URL}&playerid={playerid_persona_id}&nucleus_id={nucleus_id}&platform={plataforma}"
-                resp = await asyncio.to_thread(session.get, url, 15)
+                resp = await asyncio.to_thread(session.get, url, timeout=15)
                 if resp.status_code == 200:
                     data = resp.json()
                 elif resp.status_code == 500:
@@ -622,6 +622,8 @@ def setup_admin(bot: discord.Bot):
         embed.add_field(name="🆔 Discord ID",    value=f"`{found_id}`",     inline=True)
         if persona_id:
             embed.add_field(name="🎮 Persona ID", value=f"`{persona_id}`", inline=True)
+        if nucleus_id:
+            embed.add_field(name="⚛️ Nucleus ID", value=f"`{nucleus_id}`", inline=True)
         embed.add_field(name="🔗 Stats",         value=stats_url,           inline=False)
         embed.add_field(name="📡 API JSON",      value=api_url,             inline=False)
 
@@ -642,7 +644,7 @@ def setup_admin(bot: discord.Bot):
         session = make_session()
         try:
             player_url = f"https://api.gametools.network/bf6/player?name={gamertag}"
-            player_resp = await asyncio.to_thread(session.get, player_url, 30)
+            player_resp = await asyncio.to_thread(session.get, player_url, timeout=30)
             
             if player_resp.status_code != 200:
                 await ctx.followup.send(
@@ -676,7 +678,7 @@ def setup_admin(bot: discord.Bot):
                 kd_emoji = "❌"
                 try:
                     stats_url = f"https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
-                    stats_resp = await asyncio.to_thread(session.get, stats_url, 15)
+                    stats_resp = await asyncio.to_thread(session.get, stats_url, timeout=15)
                     if stats_resp.status_code == 200:
                         stats_data = stats_resp.json()
                         # Extrai KD do Redsec
