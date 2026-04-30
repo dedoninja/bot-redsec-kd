@@ -7,7 +7,7 @@ from config import (
     KD_ROLES, SUSPEITA_ROLES, BASE_STATS_URL,
 )
 from database import load_users, save_users
-from api import make_session, make_links, fetch_stats, resolve_player_ids
+from api import make_session, make_links, fetch_stats, resolve_player_ids, resolve_player_ids_with_platform
 from utils import extract_kd_and_human, apply_roles
 from voice import handle_voice_state_update, voice_sweep_loop
 from commands.admin import RegisterView, TrocaGametagView
@@ -98,7 +98,7 @@ async def run_auto_update(bot: discord.Bot):
 
     for discord_id, info in list(users.items()):
         gamertag   = info.get('gamertag')
-        platform   = info.get('platform', 'pc')
+        platform   = info.get('platform', 'ea')
 
         try:
             member = guild.get_member(int(discord_id))
@@ -114,7 +114,11 @@ async def run_auto_update(bot: discord.Bot):
 
             # Se tiver IDs salvos, usa direto sem passar pelo /bf6/player
             if persona_id and nucleus_id:
-                fixed_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
+                # Não inclui platform=pc pois não é mais válido na API; omitir é mais seguro
+                if platform == 'pc':
+                    fixed_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}"
+                else:
+                    fixed_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
                 session   = make_session()
                 try:
                     resp = session.get(fixed_url, timeout=15)
@@ -128,6 +132,13 @@ async def run_auto_update(bot: discord.Bot):
                 if data and data != "api_error":
                     from utils import extract_kd_and_human as check_kd
                     kd_check, _ = check_kd(data)
+                    # Corrige plataforma desatualizada (ex: 'pc') aproveitando a passagem
+                    if platform == 'pc' and kd_check > 0.0:
+                        pid_r, nid_r, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag)
+                        if plat_resolved and plat_resolved != 'pc':
+                            print(f"[AUTO-UPDATE] {gamertag} — Plataforma corrigida: pc → {plat_resolved}")
+                            users[discord_id]['platform'] = plat_resolved
+                            save_users(users)
                     if kd_check == 0.0:
                         print(f"[AUTO-UPDATE] {gamertag} — IDs salvos retornaram KD 0.00, tentando fallback por nome...")
                         data_fallback = await asyncio.to_thread(fetch_stats, gamertag, platform)
@@ -137,20 +148,26 @@ async def run_auto_update(bot: discord.Bot):
                                 # Encontrou conta com stats! Atualiza IDs no JSON
                                 print(f"[AUTO-UPDATE] {gamertag} — Fallback bem-sucedido! KD: {kd_fallback:.2f}")
                                 data = data_fallback
-                                # Atualiza os IDs no JSON para próximas vezes
-                                pid, nid = await asyncio.to_thread(resolve_player_ids, gamertag)
+                                # Atualiza os IDs e plataforma no JSON para próximas vezes
+                                pid, nid, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag)
                                 if pid and nid:
                                     users[discord_id]['persona_id'] = pid
                                     users[discord_id]['nucleus_id']  = nid
+                                    if plat_resolved and users[discord_id].get('platform') != plat_resolved:
+                                        print(f"[AUTO-UPDATE] {gamertag} — Plataforma atualizada: {users[discord_id].get('platform')} → {plat_resolved}")
+                                        users[discord_id]['platform'] = plat_resolved
                                     save_users(users)
             else:
                 data = await asyncio.to_thread(fetch_stats, gamertag, platform)
-                # Se conseguiu dados, resolve e salva os IDs para próximas vezes
+                # Se conseguiu dados, resolve e salva os IDs e plataforma para próximas vezes
                 if data and data != "api_error":
-                    pid, nid = await asyncio.to_thread(resolve_player_ids, gamertag)
+                    pid, nid, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag)
                     if pid and nid:
                         users[discord_id]['persona_id'] = pid
                         users[discord_id]['nucleus_id']  = nid
+                        if plat_resolved and users[discord_id].get('platform') != plat_resolved:
+                            print(f"[AUTO-UPDATE] {gamertag} — Plataforma atualizada: {users[discord_id].get('platform')} → {plat_resolved}")
+                            users[discord_id]['platform'] = plat_resolved
                         save_users(users)
 
             if data == "api_error":

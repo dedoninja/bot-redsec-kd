@@ -26,14 +26,14 @@ def setup_ajuda(bot: discord.Bot):
         embed = discord.Embed(
             title="Como usar o bot de KD Redsec",
             description=(
-                f"Vá até o canal `#registrar-kd-redsec⭕` ({register_mention}) e clique no botão **⭕ Registre-se aqui!**\n"
+                f"Vá até o canal {register_mention} e clique no botão **⭕ Registre-se aqui!**\n"
                 "Após registrar, o bot atualiza suas roles automaticamente a cada **24 horas**.\n\n"
                 f"**Comandos manuais** (use em {spam_mention}):\n"
                 f"→ `/kd [SeuID] [plataforma]` — busca seu KD e atribui a role\n"
                 f"→ `/stats [IDdaEA] [plataforma]` — stats completos (KD, Human%, Accuracy...)\n"
                 f"→ `/minha_conta` — veja seus próprios stats e dados de cadastro\n"
                 f"→ `/top5 [Categoria]` — veja os top 5 players com maior KD na categoria selecionada\n\n"
-                "**Plataformas válidas:** `pc` · `psn` · `xbox`\n\n"
+                "**Plataformas válidas:** `ea` · `psn` · `xbox` · `steam` · `epic`\n\n"
                 "**Como pegar seu ID da EA?** Veja o GIF abaixo!\n\n"
                 "Qualquer dúvida, chama a staff!"
             ),

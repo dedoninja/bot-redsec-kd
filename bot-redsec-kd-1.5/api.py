@@ -15,9 +15,9 @@ def make_links(gamertag: str, platform: str, persona_id: str = None, nucleus_id:
     """Gera links clicáveis [Stats] e [JSON] sem thumbnail para uso nos canais de log/ADM."""
     stats_link = f"[Stats](<https://gametools.network/stats/{platform}/name/{gamertag}?game=bf6>)"
     if persona_id and nucleus_id:
-        json_url = f"https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
+        json_url = f"https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}"
     else:
-        json_url = f"https://api.gametools.network/bf6/stats/?name={gamertag}&platform={platform}"
+        json_url = f"https://api.gametools.network/bf6/stats/?name={gamertag}"
     json_link = f"[JSON](<{json_url}>)"
     return f"{stats_link} | {json_link}"
 
@@ -65,7 +65,7 @@ def resolve_player_ids(gamertag: str) -> tuple:
                 nid = candidate.get('nucleusId')
                 if pid and nid:
                     # Verifica se essa conta tem stats no Redsec
-                    if _has_redsec_stats(pid, nid, candidate.get('platform', 'pc')):
+                    if _has_redsec_stats(pid, nid, candidate.get('platform', 'ea')):
                         return pid, nid
         
         # Se nenhuma tiver stats, retorna o primeiro disponível (prioridade: cem_ea > steam/origin > console > qualquer)
@@ -76,6 +76,58 @@ def resolve_player_ids(gamertag: str) -> tuple:
         return None, None
     except Exception:
         return None, None
+
+
+def resolve_player_ids_with_platform(gamertag: str) -> tuple:
+    """
+    Igual a resolve_player_ids, mas também retorna a plataforma da conta encontrada.
+    Retorna (persona_id, nucleus_id, platform) ou (None, None, None).
+    Usado pelo auto-update para corrigir plataformas desatualizadas no banco (ex: 'pc').
+    """
+    session = make_session()
+    try:
+        resp = session.get(
+            f"https://api.gametools.network/bf6/player?name={gamertag}",
+            timeout=30
+        )
+        if resp.status_code != 200:
+            return None, None, None
+        personas = resp.json().get('results', [])
+        if not personas:
+            return None, None, None
+
+        # Separa personas por tipo
+        cem_ea = None
+        steam_origin = None
+        console = None
+
+        for p in personas:
+            pid = p.get('platformId')
+            if pid == 'cem_ea_id':
+                cem_ea = p
+            elif pid in ['steam', 'origin']:
+                steam_origin = p
+            elif pid in ['xbox', 'xboxone', 'ps4', 'ps5']:
+                console = p
+
+        # Tenta cada tipo em ordem, verificando se tem stats
+        for candidate in [cem_ea, steam_origin, console]:
+            if candidate:
+                pid  = candidate.get('personaId')
+                nid  = candidate.get('nucleusId')
+                plat = candidate.get('platform', 'ea')
+                if pid and nid:
+                    if _has_redsec_stats(pid, nid, plat):
+                        return pid, nid, plat
+
+        # Se nenhuma tiver stats, retorna o primeiro disponível
+        for candidate in [cem_ea, steam_origin, console, personas[0]]:
+            if candidate:
+                return candidate.get('personaId'), candidate.get('nucleusId'), candidate.get('platform', 'ea')
+
+        return None, None, None
+    except Exception:
+        return None, None, None
 
 
 def _has_redsec_stats(persona_id: str, nucleus_id: str, platform: str) -> bool:
