@@ -727,6 +727,15 @@ def setup_admin(bot: discord.Bot):
                 ephemeral=True
             )
 
+    @bot.slash_command(name="ajuda_adm", description="[ADMIN] Link do helper para administradores")
+    @discord.default_permissions(administrator=True)
+    async def ajuda_adm(ctx: discord.ApplicationContext):
+        await ctx.respond(
+            "🛠️ **Helper para Administradores**\n"
+            "<https://dedoninja.github.io/bot-redsec-kd/adm.html>",
+            ephemeral=True
+        )
+
 # ================== BOTÃO CONFIRMAR TROCA GAMERTAG ==================
 
 async def force_register_internal(bot, discord_id, gamertag, plataforma, interaction):
