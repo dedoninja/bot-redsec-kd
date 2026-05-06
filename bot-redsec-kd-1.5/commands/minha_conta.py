@@ -45,6 +45,8 @@ def setup_minha_conta(bot: discord.Bot):
         gt            = info.get('gamertag', '?')
         plat          = info.get('platform', 'ea')
         registered_at = info.get('registered_at', '')
+        persona_id    = info.get('persona_id')
+        nucleus_id    = info.get('nucleus_id')
 
         await ctx.defer(ephemeral=True)
         await ctx.followup.send(
@@ -52,7 +54,7 @@ def setup_minha_conta(bot: discord.Bot):
             ephemeral=True
         )
 
-        data = await asyncio.to_thread(fetch_stats, gt, plat)
+        data = await asyncio.to_thread(fetch_stats, gt, plat, persona_id, nucleus_id)
 
         if data == "api_error":
             await ctx.followup.send("⚠️ A API de stats está instável. Tente novamente em alguns minutos.", ephemeral=True)

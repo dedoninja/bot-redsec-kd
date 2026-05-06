@@ -37,7 +37,17 @@ def setup_stats(bot: discord.Bot):
             f"*Pode demorar até 1 minuto.*"
         )
 
-        data = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
+        # Tenta pegar IDs do banco para usar como Tentativa 0
+        users_db = load_users()
+        persona_id_db = None
+        nucleus_id_db = None
+        for uid, info in users_db.items():
+            if info.get('gamertag', '').lower() == gamertag.lower() and info.get('platform') == plataforma:
+                persona_id_db = info.get('persona_id')
+                nucleus_id_db = info.get('nucleus_id')
+                break
+
+        data = await asyncio.to_thread(fetch_stats, gamertag, plataforma, persona_id_db, nucleus_id_db)
 
         if data == "api_error":
             await ctx.followup.send("⚠️ A API de stats está instável no momento. Tente novamente em alguns minutos.")

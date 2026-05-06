@@ -82,8 +82,8 @@ GITHUB_PAGE_URL = "https://dedoninja.github.io/bot-redsec-kd/"
 # ==================== API ====================
 BASE_STATS_URL = (
     "https://api.gametools.network/bf6/stats/"
-    "?categories=multiplayer&raw=false&format_values=true"
-    "&seperation=false&skip_battlelog=true"
+    "?raw=false&format_values=true"
+    "&skip_battlelog=true"
 )
 
 # ==================== BANCO DE DADOS ====================

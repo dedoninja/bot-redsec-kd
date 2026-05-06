@@ -7,7 +7,7 @@ from config import (
     KD_ROLES, SUSPEITA_ROLES, BASE_STATS_URL,
 )
 from database import load_users, save_users
-from api import make_session, make_links, fetch_stats, resolve_player_ids, resolve_player_ids_with_platform
+from api import make_session, make_links, fetch_stats, resolve_player_ids, resolve_player_ids_with_platform, extract_ids_from_stats
 from utils import extract_kd_and_human, apply_roles
 from voice import handle_voice_state_update, voice_sweep_loop
 from commands.admin import RegisterView, TrocaGametagView
@@ -159,9 +159,14 @@ async def run_auto_update(bot: discord.Bot):
                                     save_users(users)
             else:
                 data = await asyncio.to_thread(fetch_stats, gamertag, platform)
-                # Se conseguiu dados, resolve e salva os IDs e plataforma para próximas vezes
+                # Se conseguiu dados, extrai IDs do próprio JSON de stats (não depende do /bf6/player)
                 if data and data != "api_error":
-                    pid, nid, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag)
+                    pid, nid = extract_ids_from_stats(data)
+                    if not (pid and nid):
+                        # Fallback via /bf6/player se não veio no JSON
+                        pid, nid, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag)
+                    else:
+                        plat_resolved = data.get('platform', platform)
                     if pid and nid:
                         users[discord_id]['persona_id'] = pid
                         users[discord_id]['nucleus_id']  = nid

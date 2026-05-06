@@ -166,19 +166,52 @@ def _extract_redsec_kd(data: dict) -> tuple:
     return 0.0, False
 
 
-def fetch_stats(gamertag: str, platform: str):
+def extract_ids_from_stats(data: dict) -> tuple:
+    """Extrai personaId e nucleusId diretamente da resposta do /bf6/stats/.
+    O JSON de stats já contém 'id' (personaId) e 'userId' (nucleusId) no raiz.
+    Retorna (persona_id, nucleus_id) ou (None, None).
+    """
+    try:
+        persona_id = str(data.get('id', '')) or None
+        nucleus_id = str(data.get('userId', '')) or None
+        return persona_id, nucleus_id
+    except Exception:
+        return None, None
+
+
+def fetch_stats(gamertag: str, platform: str, persona_id: str = None, nucleus_id: str = None):
     """
     Busca stats com fallback automático:
+    0. Se persona_id+nucleus_id fornecidos, tenta direto (mais confiável)
     1. Tenta pelo nome + plataforma
     2. Se KD vier zerado ou Redsec não encontrado, busca personaId/nucleusId via /bf6/player
-    3. Refaz a busca de stats com os IDs corretos (prioriza cem_ea_id com stats, depois steam/origin, etc)
+    3. Refaz a busca de stats com os IDs corretos
     Retorna:
       - dict       → sucesso
       - None       → jogador não encontrado
       - "api_error" → instabilidade na API de stats (erro 500 ou falha de conexão)
     """
     session = make_session()
-    api_failed = False  # Sinaliza se houve erro de infraestrutura da API
+    api_failed = False       # Sinaliza erro de infraestrutura (500 / timeout)
+    first_valid_data = None  # Primeiro resultado 200 com dados válidos (mesmo KD=0)
+
+    # --- Tentativa 0: pelos IDs salvos no banco (mais direto e confiável) ---
+    if persona_id and nucleus_id:
+        try:
+            plat_param = "" if platform == "pc" else f"&platform={platform}"
+            url0 = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}{plat_param}"
+            resp0 = session.get(url0, timeout=15)
+            if resp0.status_code == 200:
+                data0 = resp0.json()
+                first_valid_data = data0
+                kd0, _ = _extract_redsec_kd(data0)
+                if kd0 > 0.0:
+                    return data0  # Sucesso com IDs do banco
+                # KD zerado — continua para tentar por nome
+            elif resp0.status_code == 500:
+                api_failed = True
+        except Exception:
+            api_failed = True
 
     # --- Tentativa 1: pelo nome + plataforma ---
     try:
@@ -186,37 +219,41 @@ def fetch_stats(gamertag: str, platform: str):
         resp = session.get(url, timeout=15)
         if resp.status_code == 200:
             data = resp.json()
+            first_valid_data = data
             kd, _ = _extract_redsec_kd(data)
             if kd > 0.0:
-                return data  # Sucesso direto
-            # KD zerado — tenta fallback
+                return data  # Sucesso direto com KD Redsec
         elif resp.status_code == 500:
             api_failed = True
-        # Outros status != 200 — tenta fallback
     except Exception:
         api_failed = True
 
-    # --- Tentativa 2: busca personaId/nucleusId via /bf6/player COM FALLBACK ---
+    # --- Tentativa 2: resolve personaId/nucleusId via /bf6/player ---
     try:
         player_resp = session.get(
             f"https://api.gametools.network/bf6/player?name={gamertag}",
             timeout=30
         )
         if player_resp.status_code != 200:
-            # Se o player lookup também falhou por erro de servidor, sinaliza
             if player_resp.status_code == 500:
                 api_failed = True
+            # Retorna o que tiver: dados da T1 (KD=0), api_error ou None
+            if first_valid_data is not None:
+                return first_valid_data
             return "api_error" if api_failed else None
 
         personas = player_resp.json().get('results', [])
         if not personas:
+            # Player lookup OK mas sem resultados — confia no que a T1 retornou
+            if first_valid_data is not None:
+                return first_valid_data
             return None
 
-        # Separa personas por tipo
-        cem_ea = None
+        # Separa personas por tipo de plataforma
+        cem_ea       = None
         steam_origin = None
-        console = None
-        
+        console      = None
+
         for p in personas:
             pid = p.get('platformId')
             if pid == 'cem_ea_id':
@@ -225,30 +262,42 @@ def fetch_stats(gamertag: str, platform: str):
                 steam_origin = p
             elif pid in ['xbox', 'xboxone', 'ps4', 'ps5']:
                 console = p
-        
-        # Tenta cada tipo em ordem, buscando a primeira com stats
+
+        # --- Tentativa 3: stats por playerid+nucleus_id para cada candidato ---
         for candidate in [cem_ea, steam_origin, console]:
-            if candidate:
-                persona_id = candidate.get('personaId')
-                nucleus_id = candidate.get('nucleusId')
-                plat = candidate.get('platform', platform)
-                
-                if persona_id and nucleus_id:
-                    # --- Tentativa 3: stats pelo playerid + nucleus_id ---
-                    fixed_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={plat}"
-                    resp2 = session.get(fixed_url, timeout=15)
-                    if resp2.status_code == 200:
-                        data = resp2.json()
-                        kd, _ = _extract_redsec_kd(data)
-                        if kd > 0.0:
-                            return data  # Encontrou conta com stats!
-                    elif resp2.status_code == 500:
-                        api_failed = True
-        
-        # Se chegou aqui, nenhuma conta tem stats — retorna None
-        return None
+            if not candidate:
+                continue
+            persona_id = candidate.get('personaId')
+            nucleus_id = candidate.get('nucleusId')
+            plat       = candidate.get('platform', platform)
+
+            if not (persona_id and nucleus_id):
+                continue
+
+            fixed_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={plat}"
+            try:
+                resp2 = session.get(fixed_url, timeout=15)
+                if resp2.status_code == 200:
+                    data = resp2.json()
+                    if first_valid_data is None:
+                        first_valid_data = data  # Guarda como fallback
+                    kd, _ = _extract_redsec_kd(data)
+                    if kd > 0.0:
+                        return data  # Conta com stats Redsec encontrada
+                elif resp2.status_code == 500:
+                    api_failed = True
+            except Exception:
+                api_failed = True
+
+        # Nenhum candidato tem KD Redsec > 0
+        # Retorna o primeiro 200 válido (jogador existe mas sem partidas Redsec)
+        if first_valid_data is not None:
+            return first_valid_data
+        return "api_error" if api_failed else None
 
     except Exception:
         api_failed = True
 
+    if first_valid_data is not None:
+        return first_valid_data
     return "api_error" if api_failed else None

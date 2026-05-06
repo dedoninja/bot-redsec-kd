@@ -11,7 +11,7 @@ from config import (
     VOICE_CATEGORY_NAMES, BASE_STATS_URL,
 )
 from database import load_users, save_users
-from api import fetch_stats, resolve_player_ids, make_links, make_session
+from api import fetch_stats, resolve_player_ids, extract_ids_from_stats, make_links, make_session
 from utils import extract_kd_and_human, extract_kd_by_mode, build_stats_embed, apply_roles
 from views.troca import TrocaGametagView
 from views.relatar_problema import RelatarProblemaView
@@ -167,8 +167,11 @@ class RegisterModal(Modal):
                 )
             return
 
-        # Resolve e salva persona_id/nucleus_id junto com o registro
-        persona_id, nucleus_id = await asyncio.to_thread(resolve_player_ids, gamertag)
+        # Extrai persona_id/nucleus_id diretamente do JSON de stats (não depende do /bf6/player)
+        persona_id, nucleus_id = extract_ids_from_stats(data) if data and data != "api_error" else (None, None)
+        # Fallback: tenta via /bf6/player se não encontrou nos stats
+        if not (persona_id and nucleus_id):
+            persona_id, nucleus_id = await asyncio.to_thread(resolve_player_ids, gamertag)
 
         users      = load_users()
         discord_id = str(interaction.user.id)
@@ -591,7 +594,7 @@ def setup_admin(bot: discord.Bot):
             ephemeral=True
         )
 
-        data   = await asyncio.to_thread(fetch_stats, gt, plat)
+        data   = await asyncio.to_thread(fetch_stats, gt, plat, persona_id or None, nucleus_id or None)
         guild  = bot.get_guild(SERVER_ID)
         member = guild.get_member(int(found_id)) if guild else None
 
@@ -654,11 +657,26 @@ def setup_admin(bot: discord.Bot):
                 return
             
             player_data = player_resp.json()
-            personas = player_data.get('results', [])
-            
+
+            # A API pode retornar o campo com nomes diferentes dependendo da versão
+            personas = (
+                player_data.get('results') or
+                player_data.get('personas') or
+                player_data.get('players') or
+                player_data.get('data') or
+                []
+            )
+            # Se o JSON raiz for uma lista diretamente
+            if not personas and isinstance(player_data, list):
+                personas = player_data
+
             if not personas:
+                # Mostra os campos disponíveis para depuração
+                campos = list(player_data.keys()) if isinstance(player_data, dict) else type(player_data).__name__
                 await ctx.followup.send(
-                    f"❌ Nenhum ID encontrado para **{gamertag}**.",
+                    f"❌ Nenhum ID encontrado para **{gamertag}**.\n"
+                    f"🔍 Campos retornados pela API: `{campos}`\n"
+                    f"📡 URL: <https://api.gametools.network/bf6/player?name={gamertag}>",
                     ephemeral=True
                 )
                 return
