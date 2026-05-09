@@ -681,7 +681,7 @@
                 <span class="stat-label">Comunidade</span>
             </div>
             <div class="stat-card">
-                <span class="stat-value">v1.5.1</span>
+                <span class="stat-value">v1.5.2</span>
                 <span class="stat-label">Versão</span>
             </div>
         </div>
@@ -773,6 +773,10 @@
                 <div class="cmd-row">
                     <span class="cmd-syntax">/top5 <span class="arg">[modo]</span></span>
                     <span class="cmd-desc">Exibe o ranking dos 5 jogadores cadastrados com maior KD no modo escolhido (Squad, Duo, Solo, Gauntlet ou KD de Infantaria).</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax">/ban_sala <span class="arg">[@usuário]</span></span>
+                    <span class="cmd-desc">Expulsa e impede um usuário de entrar na sua sala de voz temporária. Apenas o criador da sala pode usar este comando. O ban é removido automaticamente quando a sala for deletada.</span>
                 </div>
             </div>
 
@@ -869,7 +873,7 @@
             </div>
 
             <div class="warn-box">
-                <strong style="color:#f0c040;"><i class="fa-solid fa-circle-info"></i> Como funciona:</strong> Ao entrar em um canal <span class="channel-pill">➕ Criar...</span>, o bot cria automaticamente uma sala de voz com seu nick e te move para ela. Quando a sala ficar vazia, ela é deletada automaticamente. O criador da sala tem permissão de <strong>desconectar/kickar (Botão direito → Disconnect)</strong> pessoas da própria sala caso queira remover alguém.
+                <strong style="color:#f0c040;"><i class="fa-solid fa-circle-info"></i> Como funciona:</strong> Ao entrar em um canal <span class="channel-pill">➕ Criar...</span>, o bot cria automaticamente uma sala de voz com seu nick e te move para ela. Quando a sala ficar vazia, ela é deletada automaticamente. O criador da sala pode <strong>kickar alguém (Botão direito → Disconnect)</strong> ou usar o comando <strong>/ban_sala @usuário</strong> para expulsar e impedir que a pessoa entre novamente na sala.
             </div>
 
         </div>

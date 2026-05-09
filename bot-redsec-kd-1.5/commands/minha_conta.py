@@ -48,22 +48,21 @@ def setup_minha_conta(bot: discord.Bot):
         persona_id    = info.get('persona_id')
         nucleus_id    = info.get('nucleus_id')
 
-        await ctx.defer(ephemeral=True)
+        await ctx.defer()
         await ctx.followup.send(
-            f"<a:buscabf6:1488347979524997171> Buscando seus stats (**{gt}** | {plat})...",
-            ephemeral=True
+            f"<a:buscabf6:1488347979524997171> Buscando seus stats (**{gt}** | {plat})..."
         )
 
         data = await asyncio.to_thread(fetch_stats, gt, plat, persona_id, nucleus_id)
 
         if data == "api_error":
-            await ctx.followup.send("⚠️ A API de stats está instável. Tente novamente em alguns minutos.", ephemeral=True)
+            await ctx.followup.send("⚠️ A API de stats está instável. Tente novamente em alguns minutos.")
             return
         if data is None:
-            await ctx.followup.send("❌ Não foi possível encontrar seus stats. Verifique seu cadastro.", ephemeral=True)
+            await ctx.followup.send("❌ Não foi possível encontrar seus stats. Verifique seu cadastro.")
             return
 
         embed, _, _ = build_stats_embed(data, gt, plat, ctx.author, registered_at)
         stats_url   = f"<https://gametools.network/stats/{plat}/name/{gt}?game=bf6>"
         embed.add_field(name="🔗 Perfil", value=stats_url, inline=False)
-        await ctx.followup.send(embed=embed, ephemeral=True)
+        await ctx.followup.send(embed=embed)

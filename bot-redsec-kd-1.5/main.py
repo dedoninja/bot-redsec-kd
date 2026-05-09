@@ -19,6 +19,7 @@ from commands.admin       import setup_admin
 from commands.top5        import setup_top5
 from commands.banlist     import setup_banlist
 from commands.duplicados  import setup_duplicados
+from commands.voice_ban   import setup_voice_ban
 
 # ================== FLASK DUMMY ==================
 app = Flask(__name__)
@@ -67,6 +68,7 @@ def create_bot():
     setup_top5(bot)
     setup_banlist(bot)
     setup_duplicados(bot)
+    setup_voice_ban(bot)
 
     return bot
 
