@@ -149,13 +149,10 @@ def setup_kd(bot: discord.Bot):
         # Log
         logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
         if logs_ch:
-            is_sus_log  = changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]
-            human_label = f"⚠️ Human%: **{human_pct:.2f}%**" if is_sus_log else f"Human%: **{human_pct:.2f}%**"
-
             await logs_ch.send(
                 f"📋 **Registro via /kd** | {ctx.author.mention} (`{ctx.author.id}`) | Ação: **{action}**\n"
                 f"Gamertag: `{gamertag}` | Plataforma: `{plataforma}`\n"
-                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | {human_label} | "
+                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | "
                 f"{make_links(gamertag, plataforma, pid, nid)}"
             )
 
@@ -165,7 +162,6 @@ def setup_kd(bot: discord.Bot):
             f"✅ KD **Redsec** atual: **{kd_val:.2f}**\n"
             f"Role atribuída: **{changes['kd_role']}**\n"
             f"KD Squad: **{kd_modos['Squad']:.2f}** | KD Duo: **{kd_modos['Duo']:.2f}** | "
-            f"KD Solo: **{kd_modos['Solo']:.2f}** | KD Gauntlet: **{kd_modos['Gauntlet']:.2f}**\n"
-            f"Status: **{changes['suspeita_publico']}**\n\n"
+            f"KD Solo: **{kd_modos['Solo']:.2f}** | KD Gauntlet: **{kd_modos['Gauntlet']:.2f}**\n\n"
             f"✅ Seus dados foram salvos! O bot atualizará sua role automaticamente todo dia às 04:00."
         )

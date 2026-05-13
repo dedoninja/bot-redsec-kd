@@ -82,12 +82,6 @@ async def update_daily_top5(bot: discord.Bot):
     top_data = {"squad": [], "duo": [], "solo": [], "gauntlet": [], "infantryKD": []}
 
     for disc_id, user_info in users.items():
-        # Ignorar usuários com role fazendeiro
-        guild = bot.guilds[0] if bot.guilds else None
-        member = guild.get_member(int(disc_id)) if guild else None
-        if member and any(role.id == 1489771074945155113 for role in member.roles):
-            continue
-
         gamertag   = user_info.get("gamertag")
         platform   = user_info.get("platform")
         persona_id = user_info.get("persona_id")
@@ -139,24 +133,6 @@ async def update_daily_top5(bot: discord.Bot):
 
     save_top5(top_data)
     print("[TOP5] top5.json salvo.")
-
-    # Envia embed automático no canal de spam
-    spam_channel = bot.get_channel(BOT_SPAM_CHANNEL_ID)
-    if spam_channel:
-        for categoria in ("Squad", "Duo", "Solo", "Gauntlet"):
-            key     = categoria.lower()
-            players = top_data.get(key, [])
-            if not players:
-                continue
-            embed = _build_top5_embed(players, categoria)
-            await spam_channel.send(embed=embed)
-
-        # Envia rank Infantry KD separado
-        infantry_players = top_data.get("infantryKD", [])
-        if infantry_players:
-            embed = _build_top5_infantry_embed(infantry_players)
-            await spam_channel.send(embed=embed)
-
     print("[TOP5] Atualização concluída com sucesso.")
 
 # ================== HELPER: EMBED ==================

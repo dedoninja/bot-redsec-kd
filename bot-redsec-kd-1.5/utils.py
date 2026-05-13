@@ -2,8 +2,7 @@ import discord
 from datetime import datetime, timezone, timedelta
 from api import _extract_redsec_kd
 from config import (
-    KD_ROLES, SUSPEITA_ROLES,
-    ROLE_SUSPEITO, ROLE_SUSPEITO_PLUS, ROLE_CHEATER,
+    KD_ROLES,
     ROLE_KD2, ROLE_KD3, ROLE_KD4, ROLE_KD5,
 )
 
@@ -136,38 +135,8 @@ def build_stats_embed(data: dict, gamertag: str, platform: str, member=None, reg
     return embed, kd_val, human_pct
 
 
-def classificar_suspeita(human_pct: float) -> tuple:
-    if human_pct == 0.0:
-        return None, "Human% indisponível", "Human% indisponível"
-    elif human_pct >= 70.0:
-        return None, "Honesto", "Honesto"
-    elif human_pct >= 50.0:
-        return ROLE_SUSPEITO, "Sus 50-70%", "Suspeito"
-    elif human_pct >= 30.0:
-        return ROLE_SUSPEITO_PLUS, "Sus 30-50%", "Suspeito"
-    else:
-        return ROLE_CHEATER, "Cheater 0-30%", "Suspeito"
-
-
 async def apply_roles(member: discord.Member, guild: discord.Guild, kd: float, human_pct: float) -> dict:
     changes = {}
-
-    # --- Suspeita ---
-    for role_id in SUSPEITA_ROLES:
-        role = guild.get_role(role_id)
-        if role and role in member.roles:
-            await member.remove_roles(role)
-
-    suspeita_role_id, suspeita_interno, suspeita_publico = classificar_suspeita(human_pct)
-
-    if suspeita_role_id:
-        suspeita_role = guild.get_role(suspeita_role_id)
-        if suspeita_role:
-            await member.add_roles(suspeita_role)
-
-    changes['suspeita_interno'] = suspeita_interno
-    changes['suspeita_publico'] = suspeita_publico
-    changes['human_pct'] = human_pct
 
     # --- KD ---
     for role_id in KD_ROLES:

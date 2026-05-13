@@ -3,8 +3,8 @@ import discord
 from datetime import datetime, timezone, timedelta
 from config import (
     SERVER_ID, LOGS_CHANNEL_ID,
-    DEDO_USER_ID, ROLE_FAZENDEIRO,
-    KD_ROLES, SUSPEITA_ROLES, BASE_STATS_URL,
+    DEDO_USER_ID,
+    KD_ROLES, BASE_STATS_URL,
 )
 from database import load_users, save_users
 from api import make_session, make_links, fetch_stats, resolve_player_ids, resolve_player_ids_with_platform, extract_ids_from_stats
@@ -92,7 +92,6 @@ async def run_auto_update(bot: discord.Bot):
     total         = len(users)
     updated       = 0
     failed        = 0
-    sus_alerts    = []   # Human% baixo detectado
     fail_details  = []   # Detalhes de falhas
     removed_users = {}   # Usuários que saíram do servidor
 
@@ -199,17 +198,6 @@ async def run_auto_update(bot: discord.Bot):
 
             new_kd_roles = [r for r in member.roles if r.id in KD_ROLES]
             kd_changed   = set(r.id for r in old_kd_roles) != set(r.id for r in new_kd_roles)
-            is_sus       = changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]
-
-            if is_sus:
-                fazendeiro_role = member.guild.get_role(ROLE_FAZENDEIRO)
-                is_fazendeiro   = fazendeiro_role and fazendeiro_role in member.roles
-                if not is_fazendeiro:
-                    sus_alerts.append(
-                        f"- {member.mention} (`{gamertag}` | {platform}) | "
-                        f"KD: **{kd_val:.2f}** | ⚠️ Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
-                        f"{make_links(gamertag, platform, persona_id, nucleus_id)}"
-                    )
 
             await asyncio.sleep(5)
 
@@ -233,12 +221,6 @@ async def run_auto_update(bot: discord.Bot):
             f"Total registrados: **{total}** | Atualizados: **{updated}** | Falhas (roles mantidas): **{failed}**\n"
         )
         await logs_channel.send(summary)
-
-        if sus_alerts:
-            msg = f"**⚠️ Human% baixo detectado ({len(sus_alerts)}):**\n" + "\n".join(sus_alerts[:20])
-            if len(sus_alerts) > 20:
-                msg += f"\n*...e mais {len(sus_alerts) - 20}.*"
-            await logs_channel.send(msg)
 
         if fail_details:
             msg = f"**❌ Detalhes das falhas ({len(fail_details)}):**\n" + "\n".join(fail_details[:20])

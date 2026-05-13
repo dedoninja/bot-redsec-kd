@@ -189,22 +189,11 @@ class RegisterModal(Modal):
 
         # Aplica roles
         guild = bot.get_guild(SERVER_ID)
-        changes = {'kd_role': '?', 'suspeita_interno': '?', 'suspeita_publico': '?'}
+        changes = {'kd_role': '?'}
         if guild:
             member = guild.get_member(interaction.user.id)
             if member:
                 changes = await apply_roles(member, guild, kd_val, human_pct)
-
-                # Loga suspeita no canal de logs (destacado com ⚠️)
-                if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
-                    _logs_sus = bot.get_channel(LOGS_CHANNEL_ID)
-                    if _logs_sus:
-                        await _logs_sus.send(
-                            f"📋 **Registro** | ⚠️ Suspeita detectada | {interaction.user.mention} (`{interaction.user.id}`)\n"
-                            f"Gamertag: **{gamertag}** ({platform_raw})\n"
-                            f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | ⚠️ Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
-                            f"{make_links(gamertag, platform_raw, persona_id, nucleus_id)}"
-                        )
 
         kd_modos = extract_kd_by_mode(data)
         action = "atualizado" if old_entry else "registrado"
@@ -217,22 +206,17 @@ class RegisterModal(Modal):
             f"Gamertag: **{gamertag}** ({platform_raw})\n"
             f"KD Redsec: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
             f"KD Squad: **{kd_modos['Squad']:.2f}** | KD Duo: **{kd_modos['Duo']:.2f}** | "
-            f"KD Solo: **{kd_modos['Solo']:.2f}** | KD Gauntlet: **{kd_modos['Gauntlet']:.2f}**\n"
-            f"Status: **{changes['suspeita_publico']}**\n\n"
+            f"KD Solo: **{kd_modos['Solo']:.2f}** | KD Gauntlet: **{kd_modos['Gauntlet']:.2f}**\n\n"
             f"{nota_modal}",
             ephemeral=True
         )
 
         logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
         if logs_ch:
-            is_sus_log = changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]
-
-            human_label = f"⚠️ Human%: **{human_pct:.2f}%**" if is_sus_log else f"Human%: **{human_pct:.2f}%**"
-
             await logs_ch.send(
                 f"📋 **Registro** | {interaction.user.mention} (`{interaction.user.id}`) | Ação: **{action}**\n"
                 f"Gamertag: `{gamertag}` | Plataforma: `{platform_raw}`\n"
-                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | {human_label} | "
+                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | "
                 f"{make_links(gamertag, platform_raw, persona_id, nucleus_id)}"
             )
 
@@ -466,23 +450,12 @@ def setup_admin(bot: discord.Bot):
 
         changes = await apply_roles(member, guild, kd_val, human_pct)
 
-        if changes['suspeita_interno'] not in ["Honesto", "Human% indisponível"]:
-            _logs_sus = bot.get_channel(LOGS_CHANNEL_ID)
-            if _logs_sus:
-                await _logs_sus.send(
-                    f"📋 **Force Register** | ⚠️ Suspeita | Admin: {ctx.author.mention}\n"
-                    f"Usuário: {member.mention} (ID: {member.id})\n"
-                    f"Gamertag: **{gamertag}** ({plataforma}) | ⚠️ Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
-                    f"{make_links(gamertag, plataforma, pid, nid)}"
-                )
-
         action = "atualizado" if old_entry else "registrado"
 
         await ctx.followup.send(
             f"✅ **{member.display_name}** ({member.mention}) **{action}** com sucesso!\n"
             f"Gamertag: **{gamertag}** ({plataforma})\n"
             f"KD Redsec: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
-            f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}**\n"
             f"{make_links(gamertag, plataforma, pid, nid)}",
             ephemeral=True
         )
@@ -494,7 +467,7 @@ def setup_admin(bot: discord.Bot):
                 f"Usuário: {member.mention} (`{target_id}`) | Ação: **{action}**\n"
                 f"Gamertag: `{gamertag}` | Plataforma: `{plataforma}`\n"
                 f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | "
-                f"Human%: **{human_pct:.2f}%** → **{changes['suspeita_interno']}** | "
+                f"Human%: **{human_pct:.2f}%** | "
                 f"{make_links(gamertag, plataforma, pid, nid)}"
             )
 

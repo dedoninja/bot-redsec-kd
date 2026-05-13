@@ -14,7 +14,6 @@ from commands.kd          import setup_kd
 from commands.stats       import setup_stats
 from commands.minha_conta import setup_minha_conta
 from commands.ajuda       import setup_ajuda
-from commands.suspeitos   import setup_suspeitos
 from commands.admin       import setup_admin
 from commands.top5        import setup_top5
 from commands.banlist     import setup_banlist
@@ -63,7 +62,6 @@ def create_bot():
     setup_stats(bot)
     setup_minha_conta(bot)
     setup_ajuda(bot)
-    setup_suspeitos(bot)
     setup_admin(bot)
     setup_top5(bot)
     setup_banlist(bot)
