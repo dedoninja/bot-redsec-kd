@@ -5,7 +5,7 @@ from config import (
     REGISTER_CHANNEL_ID,
 )
 from database import load_users
-from api import fetch_stats
+from api import fetch_stats, fetch_competitive_rank
 from utils import build_stats_embed
 
 
@@ -62,5 +62,12 @@ def setup_minha_conta(bot: discord.Bot):
             await ctx.followup.send("❌ Não foi possível encontrar seus stats. Verifique seu cadastro.")
             return
 
-        embed, _, _ = build_stats_embed(data, gt, plat, ctx.author, registered_at)
+        # Busca rank competitivo para exibir no embed
+        comp_rank_mc, comp_rank_name_mc = await asyncio.to_thread(fetch_competitive_rank, persona_id, nucleus_id)
+
+        embed, _, _ = build_stats_embed(
+            data, gt, plat, ctx.author, registered_at,
+            comp_rank=comp_rank_mc,
+            comp_rank_name=comp_rank_name_mc,
+        )
         await ctx.followup.send(embed=embed)

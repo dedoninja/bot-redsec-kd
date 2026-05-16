@@ -11,7 +11,7 @@ from config import (
     VOICE_CATEGORY_NAMES, BASE_STATS_URL,
 )
 from database import load_users, save_users
-from api import fetch_stats, resolve_player_ids, extract_ids_from_stats, make_links, make_session
+from api import fetch_stats, resolve_player_ids, extract_ids_from_stats, make_links, make_session, fetch_competitive_rank
 from utils import extract_kd_and_human, extract_kd_by_mode, build_stats_embed, apply_roles
 from views.troca import TrocaGametagView
 from views.relatar_problema import RelatarProblemaView
@@ -187,13 +187,16 @@ class RegisterModal(Modal):
         users[discord_id] = entry
         save_users(users)
 
+        # Busca rank competitivo via /bf6/profile/
+        comp_rank_modal, _ = await asyncio.to_thread(fetch_competitive_rank, persona_id, nucleus_id)
+
         # Aplica roles
         guild = bot.get_guild(SERVER_ID)
-        changes = {'kd_role': '?'}
+        changes = {'kd_role': '?', 'rank_role': 'Sem Rank'}
         if guild:
             member = guild.get_member(interaction.user.id)
             if member:
-                changes = await apply_roles(member, guild, kd_val, human_pct)
+                changes = await apply_roles(member, guild, kd_val, human_pct, comp_rank_modal)
 
         kd_modos = extract_kd_by_mode(data)  # mantido para uso futuro
         action = "atualizado" if old_entry else "registrado"
@@ -449,14 +452,16 @@ def setup_admin(bot: discord.Bot):
         users[str(target_id)] = entry_fr
         save_users(users)
 
-        changes = await apply_roles(member, guild, kd_val, human_pct)
+        # Busca rank competitivo via /bf6/profile/
+        comp_rank, comp_rank_name = await asyncio.to_thread(fetch_competitive_rank, pid, nid)
+        changes = await apply_roles(member, guild, kd_val, human_pct, comp_rank)
 
         action = "atualizado" if old_entry else "registrado"
 
         await ctx.followup.send(
             f"✅ **{member.display_name}** ({member.mention}) **{action}** com sucesso!\n"
             f"Gamertag: **{gamertag}** ({plataforma})\n"
-            f"KD Squad: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
+            f"KD Squad: **{kd_val:.2f}** → Role: **{changes['kd_role']}** | Rank: **{changes['rank_role']}**\n"
             f"{make_links(gamertag, plataforma, pid, nid)}",
             ephemeral=True
         )
@@ -467,7 +472,7 @@ def setup_admin(bot: discord.Bot):
                 f"📋 **Force Register** | Admin: {ctx.author.mention}\n"
                 f"Usuário: {member.mention} (`{target_id}`) | Ação: **{action}**\n"
                 f"Gamertag: `{gamertag}` | Plataforma: `{plataforma}`\n"
-                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | "
+                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Rank: **{changes['rank_role']}** | "
                 f"Human%: **{human_pct:.2f}%** | "
                 f"{make_links(gamertag, plataforma, pid, nid)}"
             )
@@ -572,11 +577,15 @@ def setup_admin(bot: discord.Bot):
         member = guild.get_member(int(found_id)) if guild else None
 
         if data and data != "api_error":
+            # Busca rank competitivo para exibir no embed
+            comp_rank_sp, comp_rank_name_sp = await asyncio.to_thread(fetch_competitive_rank, persona_id or None, nucleus_id or None)
             embed, kd_val, human_pct = build_stats_embed(
                 data, gt, plat, member, registered_at,
                 discord_id=found_id,
                 persona_id=persona_id or None,
                 nucleus_id=nucleus_id or None,
+                comp_rank=comp_rank_sp,
+                comp_rank_name=comp_rank_name_sp,
             )
         else:
             embed = discord.Embed(
@@ -599,8 +608,11 @@ def setup_admin(bot: discord.Bot):
                 except Exception:
                     reg_fmt = registered_at[:10]
                 embed.add_field(name="📅 Cadastrado", value=reg_fmt, inline=True)
-            stats_url = f"<https://gametools.network/stats/{plat}/name/{gt}?game=bf6>"
-            embed.add_field(name="🔗 Perfil", value=stats_url, inline=False)
+            if nucleus_id:
+                perfil_url = f"[battlefield.joarchy.com](<https://battlefield.joarchy.com/p/{nucleus_id}>)"
+            else:
+                perfil_url = f"<https://gametools.network/stats/{plat}/name/{gt}?game=bf6>"
+            embed.add_field(name="🔗 Perfil", value=perfil_url, inline=False)
             if persona_id and nucleus_id:
                 api_url = f"<https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}>"
             else:
@@ -775,6 +787,10 @@ async def force_register_internal(bot, discord_id, gamertag, plataforma, interac
 
     pid, nid = await asyncio.to_thread(resolve_player_ids, gamertag)
 
+    # Busca rank competitivo via /bf6/profile/
+    from api import fetch_competitive_rank as _fetch_rank
+    comp_rank_internal, _ = await asyncio.to_thread(_fetch_rank, pid, nid)
+
     entry = {
         "gamertag": gamertag,
         "platform": plataforma,
@@ -788,7 +804,7 @@ async def force_register_internal(bot, discord_id, gamertag, plataforma, interac
     users[str(target_id)] = entry
     save_users(users)
 
-    await apply_roles(member, guild, kd_val, human_pct)
+    await apply_roles(member, guild, kd_val, human_pct, comp_rank_internal)
 
     try:
         await interaction.followup.send(

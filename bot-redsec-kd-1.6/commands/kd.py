@@ -7,7 +7,7 @@ from config import (
     GIF_EA_ID, GIF_DataShare,
 )
 from database import load_users, save_users
-from api import fetch_stats, resolve_player_ids, make_links
+from api import fetch_stats, resolve_player_ids, make_links, fetch_competitive_rank
 from utils import extract_kd_and_human, extract_kd_by_mode, apply_roles
 
 # ✅ IMPORT CORRETO (sem circular import)
@@ -126,13 +126,13 @@ def setup_kd(bot: discord.Bot):
             await ctx.followup.send("❌ Erro interno: servidor não encontrado. Contate a staff!")
             return
 
-        changes = await apply_roles(ctx.author, guild, kd_val, human_pct)
-
         # ================== ACTION CORRETO ==================
         action = "atualizado" if old_entry else "registrado"
 
-        # Salva no JSON
+        # Resolve IDs e busca rank competitivo
         pid, nid = await asyncio.to_thread(resolve_player_ids, gamertag)
+        comp_rank, comp_rank_name = await asyncio.to_thread(fetch_competitive_rank, pid, nid)
+
         entry_kd = {
             "gamertag": gamertag,
             "platform": plataforma,
@@ -146,13 +146,16 @@ def setup_kd(bot: discord.Bot):
         users_data[disc_id_str] = entry_kd
         save_users(users_data)
 
+        # Aplica role de rank competitivo
+        changes = await apply_roles(ctx.author, guild, kd_val, human_pct, comp_rank)
+
         # Log
         logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
         if logs_ch:
             await logs_ch.send(
                 f"📋 **Registro via /kd** | {ctx.author.mention} (`{ctx.author.id}`) | Ação: **{action}**\n"
                 f"Gamertag: `{gamertag}` | Plataforma: `{plataforma}`\n"
-                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Human%: **{human_pct:.2f}%** | "
+                f"KD: **{kd_val:.2f}** → **{changes['kd_role']}** | Rank: **{changes['rank_role']}** | Human%: **{human_pct:.2f}%** | "
                 f"{make_links(gamertag, plataforma, pid, nid)}"
             )
 

@@ -5,7 +5,7 @@ from config import (
     SERVER_ID, GIF_EA_ID,
 )
 from database import load_users
-from api import fetch_stats
+from api import fetch_stats, fetch_competitive_rank
 from utils import build_stats_embed
 
 
@@ -71,5 +71,17 @@ def setup_stats(bot: discord.Bot):
                     registered_at = info.get('registered_at')
                     break
 
-        embed, kd_val, human_pct = build_stats_embed(data, gamertag, plataforma, member, registered_at)
+        # Busca rank competitivo para exibir no embed
+        _pid_stats = persona_id_db
+        _nid_stats = nucleus_id_db
+        if not (_pid_stats and _nid_stats) and data and data != "api_error":
+            from api import extract_ids_from_stats as _extract
+            _pid_stats, _nid_stats = _extract(data)
+        comp_rank_stats, comp_rank_name_stats = await asyncio.to_thread(fetch_competitive_rank, _pid_stats, _nid_stats)
+
+        embed, kd_val, human_pct = build_stats_embed(
+            data, gamertag, plataforma, member, registered_at,
+            comp_rank=comp_rank_stats,
+            comp_rank_name=comp_rank_name_stats,
+        )
         await ctx.followup.send(embed=embed)

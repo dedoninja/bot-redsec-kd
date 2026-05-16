@@ -1,7 +1,7 @@
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from config import BASE_STATS_URL
+from config import BASE_STATS_URL, BASE_PROFILE_URL
 
 
 def make_session() -> requests.Session:
@@ -170,6 +170,38 @@ def _extract_redsec_kd(data: dict) -> tuple:
             return kd, True
 
     return 0.0, False
+
+
+def fetch_competitive_rank(persona_id: str, nucleus_id: str) -> tuple:
+    """Busca o rank competitivo mais recente do jogador via /bf6/profile/.
+
+    Retorna (rank: int, rank_name: str) com base no último item de 'competitiveRanks'.
+    Retorna (0, 'Sem Rank') se não houver dados de rank ou em caso de erro.
+    """
+    if not (persona_id and nucleus_id):
+        return 0, 'Sem Rank'
+    session = make_session()
+    try:
+        url  = f"{BASE_PROFILE_URL}?playerid={persona_id}&nucleus_id={nucleus_id}"
+        resp = session.get(url, timeout=15)
+        if resp.status_code != 200:
+            return 0, 'Sem Rank'
+        data = resp.json()
+        profiles = data.get('playerProfiles', [])
+        if not profiles:
+            return 0, 'Sem Rank'
+        # Pega o primeiro perfil (único retornado normalmente)
+        profile = profiles[0]
+        comp_ranks = profile.get('competitiveRanks', [])
+        if not comp_ranks:
+            return 0, 'Sem Rank'
+        # Pega o último item (season mais recente)
+        latest = comp_ranks[-1]
+        rank      = int(latest.get('rank', 0) or 0)
+        rank_name = latest.get('rankName', '') or 'Sem Rank'
+        return rank, rank_name
+    except Exception:
+        return 0, 'Sem Rank'
 
 
 def extract_ids_from_stats(data: dict) -> tuple:

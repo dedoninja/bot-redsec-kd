@@ -7,7 +7,7 @@ from config import (
     KD_ROLES, BASE_STATS_URL,
 )
 from database import load_users, save_users
-from api import make_session, make_links, fetch_stats, resolve_player_ids, resolve_player_ids_with_platform, extract_ids_from_stats
+from api import make_session, make_links, fetch_stats, resolve_player_ids, resolve_player_ids_with_platform, extract_ids_from_stats, fetch_competitive_rank
 from utils import extract_kd_and_human, apply_roles
 from voice import handle_voice_state_update, voice_sweep_loop
 from commands.admin import RegisterView, TrocaGametagView
@@ -193,7 +193,11 @@ async def run_auto_update(bot: discord.Bot):
                 failed += 1
                 continue
 
-            changes  = await apply_roles(member, guild, kd_val, human_pct)
+            # Busca rank competitivo via /bf6/profile/ para o auto-update
+            _pid_ev = info.get('persona_id')
+            _nid_ev = info.get('nucleus_id')
+            comp_rank_ev, _ = await asyncio.to_thread(fetch_competitive_rank, _pid_ev, _nid_ev)
+            changes  = await apply_roles(member, guild, kd_val, human_pct, comp_rank_ev)
             updated += 1
 
             new_kd_roles = [r for r in member.roles if r.id in KD_ROLES]

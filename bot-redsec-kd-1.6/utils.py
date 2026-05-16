@@ -4,6 +4,9 @@ from api import _extract_redsec_kd
 from config import (
     KD_ROLES,
     ROLE_KD2, ROLE_KD3, ROLE_KD4, ROLE_KD5,
+    RANK_ROLES,
+    ROLE_RANK_ELITE, ROLE_RANK_MESTRE, ROLE_RANK_DIAMANTE, ROLE_RANK_PLATINA,
+    ROLE_RANK_OURO, ROLE_RANK_PRATA, ROLE_RANK_BRONZE, ROLE_RANK_RECRUTA, ROLE_SEM_RANK,
 )
 
 
@@ -101,6 +104,39 @@ def extract_infantry_kd(data: dict) -> float:
     return 0.0
 
 
+def get_rank_role_id(rank: int) -> tuple:
+    """Retorna (role_id, role_name) de rank competitivo com base no valor numérico do rank.
+
+    rank >= 36 → Rank Elite
+    rank 31-35 → Rank Mestre
+    rank 26-30 → Rank Diamante
+    rank 21-25 → Rank Platina
+    rank 16-20 → Rank Ouro
+    rank 11-15 → Rank Prata
+    rank 6-10  → Rank Bronze
+    rank 1-5   → Rank Recruta
+    rank == 0  → Sem Rank
+    """
+    if rank >= 36:
+        return ROLE_RANK_ELITE, 'Rank Elite'
+    elif rank >= 31:
+        return ROLE_RANK_MESTRE, 'Rank Mestre'
+    elif rank >= 26:
+        return ROLE_RANK_DIAMANTE, 'Rank Diamante'
+    elif rank >= 21:
+        return ROLE_RANK_PLATINA, 'Rank Platina'
+    elif rank >= 16:
+        return ROLE_RANK_OURO, 'Rank Ouro'
+    elif rank >= 11:
+        return ROLE_RANK_PRATA, 'Rank Prata'
+    elif rank >= 6:
+        return ROLE_RANK_BRONZE, 'Rank Bronze'
+    elif rank >= 1:
+        return ROLE_RANK_RECRUTA, 'Rank Recruta'
+    else:
+        return ROLE_SEM_RANK, 'Sem Rank'
+
+
 def build_stats_embed(
     data: dict,
     gamertag: str,
@@ -110,6 +146,8 @@ def build_stats_embed(
     discord_id: str = None,
     persona_id: str = None,
     nucleus_id: str = None,
+    comp_rank: int = 0,
+    comp_rank_name: str = None,
 ):
     """Monta o embed padronizado de stats para /stats, /minha_conta e /search_player.
 
@@ -169,38 +207,34 @@ def build_stats_embed(
         embed.set_thumbnail(url=member.display_avatar.url)
 
     # ── Stats Gerais Battle Royale ──
-    embed.add_field(name="📊 Stats Gerais Battle Royale", value="\u200b", inline=False)
+    embed.add_field(name="\u200b", value="📊 Stats Gerais Battle Royale", inline=False)
     embed.add_field(name="🧠 Human%",       value=f"**{human_pct:.2f}%**", inline=True)
     embed.add_field(name="🎯 Accuracy",     value=f"**{accuracy}**",       inline=True)
     embed.add_field(name="💀 Headshots",    value=f"**{headshots}**",      inline=True)
     embed.add_field(name="🥇 1° lugar",     value=f"**{win_pct}**",        inline=True)
     embed.add_field(name="☠️ Kills",        value=f"**{br_kills}**",       inline=True)
     embed.add_field(name="⚔️ Partidas",     value=f"**{br_matches}**",     inline=True)
-    embed.add_field(name="✅ KD Squad",      value=f"**{br_kd:.2f}**",               inline=True)
+    embed.add_field(name="✅ KD Battle Royale",  value=f"**{br_kd:.2f}**",                    inline=True)
     embed.add_field(name="🪖 KD Infantaria", value=f"**{extract_infantry_kd(data):.2f}**", inline=True)
-    embed.add_field(name="\u200b",           value="\u200b",                         inline=True)
-    # Linha em branco para separar seções
-    embed.add_field(name="\u200b", value="\u200b", inline=False)
+    embed.add_field(name="⏱️ Tempo jogado",  value=f"**{br_horas}h**",                     inline=True)
 
     # ── Stats Season atual ──
     season_label = f"📈 Stats {season_name}" if season_name else "📈 Stats Season"
-    embed.add_field(name=season_label, value="\u200b", inline=False)
-    embed.add_field(name="KD Squad",     value=f"{kd_modos['Squad']:.2f}",    inline=True)
-    embed.add_field(name="KD Duo",       value=f"{kd_modos['Duo']:.2f}",      inline=True)
-    embed.add_field(name="KD Solo",      value=f"{kd_modos['Solo']:.2f}",     inline=True)
-    embed.add_field(name="KD Gauntlet",  value=f"{kd_modos['Gauntlet']:.2f}", inline=True)
-    embed.add_field(name="⏱️ Tempo jogado", value=f"{br_horas}h",               inline=True)
-    # Field vazio para fechar o grid 3x3 — apenas em /stats e /minha_conta.
-    # O /search_player passa discord_id/persona_id/nucleus_id e já está no limite de 25 fields.
-    if not (discord_id or persona_id or nucleus_id):
-        embed.add_field(name="\u200b", value="\u200b", inline=True)
-    # Linha em branco para separar seções
-    embed.add_field(name="\u200b", value="\u200b", inline=False)
+    embed.add_field(name="\u200b", value=season_label, inline=False)
+    embed.add_field(name="KD Squad",    value=f"{kd_modos['Squad']:.2f}",    inline=True)
+    embed.add_field(name="KD Duo",      value=f"{kd_modos['Duo']:.2f}",      inline=True)
+    embed.add_field(name="KD Solo",     value=f"{kd_modos['Solo']:.2f}",     inline=True)
+    embed.add_field(name="KD Gauntlet", value=f"{kd_modos['Gauntlet']:.2f}", inline=True)
+
+    # Campo de Rank competitivo (ao lado de KD Gauntlet)
+    rank_display = comp_rank_name if comp_rank_name else 'Sem Rank'
+    embed.add_field(name="🏆 Rank", value=rank_display, inline=True)
+
+    # KD Gauntlet + Rank = 2 campos → 1 filler para fechar a linha de 3
+    embed.add_field(name="\u200b", value="\u200b", inline=True)
 
     # ── Dados no bot (apenas quando discord_id/persona_id/nucleus_id fornecidos — comandos admin) ──
     if discord_id or persona_id or nucleus_id:
-        embed.add_field(name="🗂️ Dados no bot", value="\u200b", inline=False)
-
         if discord_id:
             embed.add_field(name="🆔 Discord ID", value=f"`{discord_id}`", inline=True)
         if persona_id:
@@ -216,20 +250,18 @@ def build_stats_embed(
                 reg_fmt = registered_at[:10]
             embed.add_field(name="📅 Cadastrado", value=reg_fmt, inline=True)
 
-        # Links de perfil e API JSON
-        stats_url = f"<https://gametools.network/stats/{platform}/name/{gamertag}?game=bf6>"
-        embed.add_field(name="🔗 Perfil", value=stats_url, inline=False)
+        # Link de perfil no /search_player aponta para battlefield.joarchy.com usando nucleus_id
+        if nucleus_id:
+            perfil_url = f"<https://battlefield.joarchy.com/p/{nucleus_id}>"
+        else:
+            perfil_url = f"<https://gametools.network/stats/{platform}/name/{gamertag}?game=bf6>"
+        embed.add_field(name="🔗 Perfil", value=perfil_url, inline=False)
 
         if persona_id and nucleus_id:
             api_url = f"<https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}>"
         else:
             api_url = f"<https://api.gametools.network/bf6/stats/?name={gamertag}>"
         embed.add_field(name="📡 API JSON", value=api_url, inline=False)
-
-    else:
-        # Sem dados de conta — só link de perfil
-        stats_url = f"<https://gametools.network/stats/{platform}/name/{gamertag}?game=bf6>"
-        embed.add_field(name="🔗 Perfil", value=stats_url, inline=False)
 
     # Rodapé
     footer_parts = []
@@ -245,7 +277,7 @@ def build_stats_embed(
     return embed, kd_val, human_pct
 
 
-async def apply_roles(member: discord.Member, guild: discord.Guild, kd: float, human_pct: float) -> dict:
+async def apply_roles(member: discord.Member, guild: discord.Guild, kd: float, human_pct: float, comp_rank: int = 0) -> dict:
     changes = {}
 
     # --- KD ---
@@ -273,4 +305,18 @@ async def apply_roles(member: discord.Member, guild: discord.Guild, kd: float, h
 
     changes['kd'] = kd
     changes['kd_role'] = role_name
+
+    # --- Rank competitivo ---
+    for role_id in RANK_ROLES:
+        role = guild.get_role(role_id)
+        if role and role in member.roles:
+            await member.remove_roles(role)
+
+    rank_role_id, rank_role_name = get_rank_role_id(comp_rank)
+    rank_role = guild.get_role(rank_role_id)
+    if rank_role:
+        await member.add_roles(rank_role)
+
+    changes['comp_rank'] = comp_rank
+    changes['rank_role'] = rank_role_name
     return changes
