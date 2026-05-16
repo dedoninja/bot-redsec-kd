@@ -64,6 +64,19 @@ def extract_kd_by_mode(data: dict) -> dict:
     return modos
 
 
+def extract_br_kd(data: dict) -> float:
+    """Extrai o killDeath do grupo 'Battle Royale' em gameModeGroups.
+    É o mesmo valor usado para atribuir roles de KD.
+    """
+    for group in data.get('gameModeGroups', []):
+        if group.get('gamemodeName') == 'Battle Royale':
+            try:
+                return float(group.get('killDeath', 0.0))
+            except (ValueError, TypeError):
+                return 0.0
+    return 0.0
+
+
 def extract_infantry_kd(data: dict) -> float:
     """Extrai o KD de infantaria (infantryKillDeath) para o Top 5 Battlefield.
     Prioriza o campo direto no raiz do JSON, com fallback mínimo."""
@@ -107,6 +120,7 @@ def build_stats_embed(
     """
     kd_val, human_pct = extract_kd_and_human(data)
     season_name, kd_modos = _extract_latest_season(data)
+    br_kd = extract_br_kd(data)
 
     # Cor baseada no Human%
     if human_pct == 0.0:
@@ -130,22 +144,12 @@ def build_stats_embed(
     win_pct  = '0%'
     br_kills   = 0
     br_matches = 0
-    br_kpm     = 0.0
-    br_dpm     = 0.0
     br_horas   = 0
     for group in data.get('gameModeGroups', []):
         if group.get('gamemodeName') == 'Battle Royale':
             win_pct    = group.get('winPercent', '0%')
             br_kills   = group.get('kills', 0)
             br_matches = group.get('matches', 0)
-            try:
-                br_kpm = float(group.get('kpm', 0.0) or 0.0)
-            except (ValueError, TypeError):
-                br_kpm = 0.0
-            try:
-                br_dpm = float(group.get('dpm', 0.0) or 0.0)
-            except (ValueError, TypeError):
-                br_dpm = 0.0
             try:
                 br_horas = round(int(group.get('secondsPlayed', 0) or 0) / 3600)
             except (ValueError, TypeError):
@@ -172,20 +176,24 @@ def build_stats_embed(
     embed.add_field(name="🥇 1° lugar",     value=f"**{win_pct}**",        inline=True)
     embed.add_field(name="☠️ Kills",        value=f"**{br_kills}**",       inline=True)
     embed.add_field(name="⚔️ Partidas",     value=f"**{br_matches}**",     inline=True)
-    embed.add_field(name="🔥 Kill/Min",     value=f"**{br_kpm:.2f}**",     inline=True)
-    embed.add_field(name="💥 Dano/Min",     value=f"**{br_dpm:.2f}**",     inline=True)
-    embed.add_field(name="⏱️ Tempo jogado", value=f"**{br_horas}h**",      inline=True)
+    embed.add_field(name="✅ KD Squad",      value=f"**{br_kd:.2f}**",               inline=True)
+    embed.add_field(name="🪖 KD Infantaria", value=f"**{extract_infantry_kd(data):.2f}**", inline=True)
+    embed.add_field(name="\u200b",           value="\u200b",                         inline=True)
     # Linha em branco para separar seções
     embed.add_field(name="\u200b", value="\u200b", inline=False)
 
     # ── Stats Season atual ──
     season_label = f"📈 Stats {season_name}" if season_name else "📈 Stats Season"
     embed.add_field(name=season_label, value="\u200b", inline=False)
-    embed.add_field(name="KD Squad",     value=f"{kd_modos['Squad']:.2f}",         inline=True)
-    embed.add_field(name="KD Duo",       value=f"{kd_modos['Duo']:.2f}",           inline=True)
-    embed.add_field(name="KD Solo",      value=f"{kd_modos['Solo']:.2f}",          inline=True)
-    embed.add_field(name="KD Gauntlet",  value=f"{kd_modos['Gauntlet']:.2f}",      inline=True)
-    embed.add_field(name="KD Infantaria",value=f"{extract_infantry_kd(data):.2f}", inline=True)
+    embed.add_field(name="KD Squad",     value=f"{kd_modos['Squad']:.2f}",    inline=True)
+    embed.add_field(name="KD Duo",       value=f"{kd_modos['Duo']:.2f}",      inline=True)
+    embed.add_field(name="KD Solo",      value=f"{kd_modos['Solo']:.2f}",     inline=True)
+    embed.add_field(name="KD Gauntlet",  value=f"{kd_modos['Gauntlet']:.2f}", inline=True)
+    embed.add_field(name="⏱️ Tempo jogado", value=f"{br_horas}h",               inline=True)
+    # Field vazio para fechar o grid 3x3 — apenas em /stats e /minha_conta.
+    # O /search_player passa discord_id/persona_id/nucleus_id e já está no limite de 25 fields.
+    if not (discord_id or persona_id or nucleus_id):
+        embed.add_field(name="\u200b", value="\u200b", inline=True)
     # Linha em branco para separar seções
     embed.add_field(name="\u200b", value="\u200b", inline=False)
 

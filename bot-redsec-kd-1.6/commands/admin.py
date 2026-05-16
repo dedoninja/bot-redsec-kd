@@ -195,18 +195,16 @@ class RegisterModal(Modal):
             if member:
                 changes = await apply_roles(member, guild, kd_val, human_pct)
 
-        kd_modos = extract_kd_by_mode(data)
+        kd_modos = extract_kd_by_mode(data)  # mantido para uso futuro
         action = "atualizado" if old_entry else "registrado"
         if old_entry:
             nota_modal = "ℹ️ Seus dados já estavam cadastrados e foram atualizados. O bot atualiza sua role automaticamente todo dia às 04:00!"
         else:
             nota_modal = "✅ Seus dados foram salvos! O bot atualizará sua role automaticamente todo dia às 04:00."
         await interaction.followup.send(
-            f"✅ Nick **{action}** com sucesso!\n"
+            f"✅ ID **{action}** com sucesso!\n"
             f"Gamertag: **{gamertag}** ({platform_raw})\n"
-            f"KD Redsec: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
-            f"KD Squad: **{kd_modos['Squad']:.2f}** | KD Duo: **{kd_modos['Duo']:.2f}** | "
-            f"KD Solo: **{kd_modos['Solo']:.2f}** | KD Gauntlet: **{kd_modos['Gauntlet']:.2f}**\n\n"
+            f"KD Squad: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n\n"
             f"{nota_modal}",
             ephemeral=True
         )
@@ -458,7 +456,7 @@ def setup_admin(bot: discord.Bot):
         await ctx.followup.send(
             f"✅ **{member.display_name}** ({member.mention}) **{action}** com sucesso!\n"
             f"Gamertag: **{gamertag}** ({plataforma})\n"
-            f"KD Redsec: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
+            f"KD Squad: **{kd_val:.2f}** → Role: **{changes['kd_role']}**\n"
             f"{make_links(gamertag, plataforma, pid, nid)}",
             ephemeral=True
         )

@@ -147,47 +147,28 @@ def _has_redsec_stats(persona_id: str, nucleus_id: str, platform: str) -> bool:
 
 def _extract_redsec_kd(data: dict) -> tuple:
     """Auxiliar: extrai apenas o KD do Redsec para decisão de fallback.
-    
-    NOVA LÓGICA: usa o KD do modo 'Quads' da última season em data['redsec'].
-    O 'último' é determinado pelo maior valor lexicográfico de 'seasonId' (ex: Season3 > Season2).
-    Fallback para gameModeGroups/gameModes caso 'redsec' não esteja presente.
-    """
-    redsec_seasons = data.get('redsec', [])
-    if redsec_seasons:
-        # Pega a season com maior seasonId (lexicográfico; funciona para Season1, Season2, Season3...)
-        latest = max(redsec_seasons, key=lambda s: s.get('seasonId', ''))
-        for mode in latest.get('modes', []):
-            if mode.get('mode') == 'Quads':
-                try:
-                    kd = float(mode.get('killDeath', 0.0))
-                except (ValueError, TypeError):
-                    kd = 0.0
-                return kd, True
-        # Season encontrada mas sem modo Quads — tenta qualquer modo com KD > 0
-        for mode in latest.get('modes', []):
-            try:
-                kd = float(mode.get('killDeath', 0.0))
-                if kd > 0.0:
-                    return kd, True
-            except (ValueError, TypeError):
-                pass
 
-    # Fallback: gameModeGroups (comportamento anterior)
+    LÓGICA ATUAL: usa o killDeath do grupo 'Battle Royale' em gameModeGroups.
+    Fallback para gameModes caso gameModeGroups não tenha Battle Royale.
+    """
+    # Prioridade: gameModeGroups com gamemodeName == 'Battle Royale'
     for group in data.get('gameModeGroups', []):
-        if group.get('gamemodeName') == 'Redsec':
+        if group.get('gamemodeName') == 'Battle Royale':
             try:
                 kd = float(group.get('killDeath', 0.0))
             except (ValueError, TypeError):
                 kd = 0.0
             return kd, True
+
+    # Fallback: gameModes com gamemodeName == 'Battle Royale'
     for mode in data.get('gameModes', []):
-        if mode.get('gamemodeName') in ['Redsec Squad', 'Redsec Duo', 'Redsec Solo']:
+        if mode.get('gamemodeName') == 'Battle Royale':
             try:
                 kd = float(mode.get('killDeath', 0.0))
             except (ValueError, TypeError):
                 kd = 0.0
-            if kd > 0.0:
-                return kd, True
+            return kd, True
+
     return 0.0, False
 
 
