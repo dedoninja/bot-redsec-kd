@@ -55,7 +55,14 @@ VOICE_TRIGGER_MAP = {
     1477363524354441267: (1432911097324765275, "⭕ Squad KD3+ do {nick}"), # Criar Squad KD3+
     1477365476387721403: (1432911097324765275, "⭕ Squad KD4+ do {nick}"), # Criar Squad KD4+
     1477365937043800255: (1432911097324765275, "⭕ Squad KD5+ do {nick}"), # Criar Squad KD5+
-    1449414825779138761: (1449414337977520312, "🏆 Squad do {nick}"),   # Criar Sala Competitiva
+    # ── Ranked ──────────────────────────────────────────────────────────────
+    1449414825779138761: (1449414337977520312, "🔥 Squad do {nick}"),         # Criar Sala Ranked
+    1507163305402175499: (1449414337977520312, "🔥 Squad Bronze+ do {nick}"), # Criar Squad Bronze+
+    1507164116920569856: (1449414337977520312, "🔥 Squad Prata+ do {nick}"),  # Criar Squad Prata+
+    1507164839095832586: (1449414337977520312, "🔥 Squad Ouro+ do {nick}"),   # Criar Squad Ouro+
+    1507164861862510622: (1449414337977520312, "🔥 Squad Platina+ do {nick}"),# Criar Squad Platina+
+    1507164880669507624: (1449414337977520312, "🔥 Squad Diamante+ do {nick}"),# Criar Squad Diamante+
+    1507164903633584159: (1449414337977520312, "🔥 Squad Mestre+ do {nick}"), # Criar Squad Mestre+
 }
 
 # Canais fixos que NUNCA devem ser deletados pelo bot
@@ -63,8 +70,8 @@ VOICE_PROTECTED_CHANNELS = {
     1341566545230561322,  # Lobby Battlefield
     1440683314942967918,  # Lobby Arena/Gauntlet
     1432919538525016124,  # Lobby RedSec
-    1449414468512649328,  # Lobby Competitivo
-    1449434543839903837,  # chat-competitivo (texto)
+    1449414468512649328,  # 🔥 Lobby Ranked
+    1449434543839903837,  # 🔥┃chat-ranked (texto)
 }
 
 # Categorias monitoradas pela varredura de salas vazias
@@ -72,7 +79,7 @@ VOICE_TARGET_CATEGORIES = {
     459529456663396372,   # 🪖 Jogando Battlefield
     1440680027552350208,  # 🏟️ Jogando Arena/Gauntlet
     1432911097324765275,  # ⭕ Jogando RedSec
-    1449414337977520312,  # 🏆 Competitivo
+    1449414337977520312,  # 🔥 Jogando Ranked
 }
 
 # Nome legível de cada categoria monitorada (para o relatório)
@@ -80,7 +87,7 @@ VOICE_CATEGORY_NAMES = {
     459529456663396372:   "🪖 Jogando Battlefield",
     1440680027552350208:  "🏟️ Jogando Arena/Gauntlet",
     1432911097324765275:  "⭕ Jogando RedSec",
-    1449414337977520312:  "🏆 Competitivo",
+    1449414337977520312:  "🔥 Jogando Ranked",
 }
 
 VOICE_COOLDOWN_SECONDS = 5

@@ -176,32 +176,41 @@ def fetch_competitive_rank(persona_id: str, nucleus_id: str) -> tuple:
     """Busca o rank competitivo mais recente do jogador via /bf6/profile/.
 
     Retorna (rank: int, rank_name: str) com base no último item de 'competitiveRanks'.
-    Retorna (0, 'Sem Rank') se não houver dados de rank ou em caso de erro.
+
+    Distinção importante:
+    - Perfil privado: API não retorna 'playerProfiles' no root (retorna 'other' ou vazio).
+      → Retorna (0, 'Perfil Privado')
+    - Perfil público sem rank (Unranked): 'competitiveRanks' presente, rankName='Unranked', rank=0.
+      → Retorna (0, 'Unranked')
+    - Sem persona_id/nucleus_id ou erro de API:
+      → Retorna (0, 'Perfil Privado') por segurança (não é possível determinar)
     """
     if not (persona_id and nucleus_id):
-        return 0, 'Sem Rank'
+        return 0, 'Perfil Privado'
     session = make_session()
     try:
         url  = f"{BASE_PROFILE_URL}?playerid={persona_id}&nucleus_id={nucleus_id}"
         resp = session.get(url, timeout=15)
         if resp.status_code != 200:
-            return 0, 'Sem Rank'
+            return 0, 'Perfil Privado'
         data = resp.json()
         profiles = data.get('playerProfiles', [])
         if not profiles:
-            return 0, 'Sem Rank'
+            # Perfil privado: API retorna 'other' ao invés de 'playerProfiles'
+            return 0, 'Perfil Privado'
         # Pega o primeiro perfil (único retornado normalmente)
         profile = profiles[0]
         comp_ranks = profile.get('competitiveRanks', [])
         if not comp_ranks:
-            return 0, 'Sem Rank'
+            # Perfil público mas sem histórico de rank competitivo
+            return 0, 'Perfil Privado'
         # Pega o último item (season mais recente)
         latest = comp_ranks[-1]
         rank      = int(latest.get('rank', 0) or 0)
-        rank_name = latest.get('rankName', '') or 'Sem Rank'
+        rank_name = latest.get('rankName', '') or 'Unranked'
         return rank, rank_name
     except Exception:
-        return 0, 'Sem Rank'
+        return 0, 'Perfil Privado'
 
 
 def extract_ids_from_stats(data: dict) -> tuple:

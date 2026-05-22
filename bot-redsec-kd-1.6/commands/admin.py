@@ -188,15 +188,15 @@ class RegisterModal(Modal):
         save_users(users)
 
         # Busca rank competitivo via /bf6/profile/
-        comp_rank_modal, _ = await asyncio.to_thread(fetch_competitive_rank, persona_id, nucleus_id)
+        comp_rank_modal, comp_rank_name_modal = await asyncio.to_thread(fetch_competitive_rank, persona_id, nucleus_id)
 
         # Aplica roles
         guild = bot.get_guild(SERVER_ID)
-        changes = {'kd_role': '?', 'rank_role': 'Sem Rank'}
+        changes = {'kd_role': '?', 'rank_role': 'Perfil Privado'}
         if guild:
             member = guild.get_member(interaction.user.id)
             if member:
-                changes = await apply_roles(member, guild, kd_val, human_pct, comp_rank_modal)
+                changes = await apply_roles(member, guild, kd_val, human_pct, comp_rank_modal, comp_rank_name_modal)
 
         kd_modos = extract_kd_by_mode(data)  # mantido para uso futuro
         action = "atualizado" if old_entry else "registrado"
@@ -211,6 +211,15 @@ class RegisterModal(Modal):
             f"{nota_modal}",
             ephemeral=True
         )
+
+        # Aviso de perfil privado (somente se perfil realmente privado, não Unranked)
+        if comp_rank_name_modal == 'Perfil Privado':
+            await interaction.followup.send(
+                f"{interaction.user.mention} seu **Compartilhamento de dados** está desativado. "
+                f"Habilite em: Opções → Sistema → Compartilhamento de dados de gameplay.\n"
+                f"{GIF_DataShare}",
+                ephemeral=True
+            )
 
         logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
         if logs_ch:
@@ -454,7 +463,7 @@ def setup_admin(bot: discord.Bot):
 
         # Busca rank competitivo via /bf6/profile/
         comp_rank, comp_rank_name = await asyncio.to_thread(fetch_competitive_rank, pid, nid)
-        changes = await apply_roles(member, guild, kd_val, human_pct, comp_rank)
+        changes = await apply_roles(member, guild, kd_val, human_pct, comp_rank, comp_rank_name)
 
         action = "atualizado" if old_entry else "registrado"
 
@@ -789,7 +798,7 @@ async def force_register_internal(bot, discord_id, gamertag, plataforma, interac
 
     # Busca rank competitivo via /bf6/profile/
     from api import fetch_competitive_rank as _fetch_rank
-    comp_rank_internal, _ = await asyncio.to_thread(_fetch_rank, pid, nid)
+    comp_rank_internal, comp_rank_name_internal = await asyncio.to_thread(_fetch_rank, pid, nid)
 
     entry = {
         "gamertag": gamertag,
@@ -804,7 +813,7 @@ async def force_register_internal(bot, discord_id, gamertag, plataforma, interac
     users[str(target_id)] = entry
     save_users(users)
 
-    await apply_roles(member, guild, kd_val, human_pct, comp_rank_internal)
+    await apply_roles(member, guild, kd_val, human_pct, comp_rank_internal, comp_rank_name_internal)
 
     try:
         await interaction.followup.send(

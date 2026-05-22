@@ -2,7 +2,7 @@ import asyncio
 import discord
 from config import (
     BOT_SPAM_CHANNEL_ID, ADM_COMMANDS_CHANNEL_ID,
-    REGISTER_CHANNEL_ID,
+    REGISTER_CHANNEL_ID, GIF_DataShare,
 )
 from database import load_users
 from api import fetch_stats, fetch_competitive_rank
@@ -71,3 +71,12 @@ def setup_minha_conta(bot: discord.Bot):
             comp_rank_name=comp_rank_name_mc,
         )
         await ctx.followup.send(embed=embed)
+
+        # Aviso de perfil privado (somente se perfil realmente privado, não Unranked)
+        if comp_rank_name_mc == 'Perfil Privado':
+            await ctx.followup.send(
+                f"{ctx.author.mention} seu **Compartilhamento de dados** está desativado. "
+                f"Habilite em: Opções → Sistema → Compartilhamento de dados de gameplay.\n"
+                f"{GIF_DataShare}",
+                ephemeral=True
+            )

@@ -115,7 +115,8 @@ def get_rank_role_id(rank: int) -> tuple:
     rank 11-15 → Rank Prata
     rank 6-10  → Rank Bronze
     rank 1-5   → Rank Recruta
-    rank == 0  → Sem Rank
+    rank == 0  → ROLE_SEM_RANK (cobre tanto 'Perfil Privado' quanto 'Unranked')
+                 O nome exibido é determinado pelo rank_name retornado pela API em fetch_competitive_rank.
     """
     if rank >= 36:
         return ROLE_RANK_ELITE, 'Rank Elite'
@@ -134,7 +135,7 @@ def get_rank_role_id(rank: int) -> tuple:
     elif rank >= 1:
         return ROLE_RANK_RECRUTA, 'Rank Recruta'
     else:
-        return ROLE_SEM_RANK, 'Sem Rank'
+        return ROLE_SEM_RANK, 'Perfil Privado'
 
 
 def build_stats_embed(
@@ -227,7 +228,7 @@ def build_stats_embed(
     embed.add_field(name="KD Gauntlet", value=f"{kd_modos['Gauntlet']:.2f}", inline=True)
 
     # Campo de Rank competitivo (ao lado de KD Gauntlet)
-    rank_display = comp_rank_name if comp_rank_name else 'Sem Rank'
+    rank_display = comp_rank_name if comp_rank_name else 'Perfil Privado'
     embed.add_field(name="🏆 Rank", value=rank_display, inline=True)
 
     # KD Gauntlet + Rank = 2 campos → 1 filler para fechar a linha de 3
@@ -277,7 +278,7 @@ def build_stats_embed(
     return embed, kd_val, human_pct
 
 
-async def apply_roles(member: discord.Member, guild: discord.Guild, kd: float, human_pct: float, comp_rank: int = 0) -> dict:
+async def apply_roles(member: discord.Member, guild: discord.Guild, kd: float, human_pct: float, comp_rank: int = 0, rank_name: str = None) -> dict:
     changes = {}
 
     # --- KD ---
@@ -312,11 +313,13 @@ async def apply_roles(member: discord.Member, guild: discord.Guild, kd: float, h
         if role and role in member.roles:
             await member.remove_roles(role)
 
-    rank_role_id, rank_role_name = get_rank_role_id(comp_rank)
+    rank_role_id, rank_role_name_default = get_rank_role_id(comp_rank)
     rank_role = guild.get_role(rank_role_id)
     if rank_role:
         await member.add_roles(rank_role)
 
+    # Usa o rank_name da API quando disponível (distingue 'Perfil Privado' de 'Unranked')
+    # Para ranks com valor > 0, usa o nome padrão do get_rank_role_id
     changes['comp_rank'] = comp_rank
-    changes['rank_role'] = rank_role_name
+    changes['rank_role'] = rank_name if (rank_name and comp_rank == 0) else rank_role_name_default
     return changes

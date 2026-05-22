@@ -147,7 +147,7 @@ def setup_kd(bot: discord.Bot):
         save_users(users_data)
 
         # Aplica role de rank competitivo
-        changes = await apply_roles(ctx.author, guild, kd_val, human_pct, comp_rank)
+        changes = await apply_roles(ctx.author, guild, kd_val, human_pct, comp_rank, comp_rank_name)
 
         # Log
         logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
@@ -168,3 +168,12 @@ def setup_kd(bot: discord.Bot):
             f"KD Solo: **{kd_modos['Solo']:.2f}** | KD Gauntlet: **{kd_modos['Gauntlet']:.2f}**\n\n"
             f"✅ Seus dados foram salvos! O bot atualizará sua role automaticamente todo dia às 04:00."
         )
+
+        # Aviso de perfil privado (somente se perfil realmente privado, não Unranked)
+        if comp_rank_name == 'Perfil Privado':
+            await ctx.followup.send(
+                f"{ctx.author.mention} seu **Compartilhamento de dados** está desativado. "
+                f"Habilite em: Opções → Sistema → Compartilhamento de dados de gameplay.\n"
+                f"{GIF_DataShare}",
+                ephemeral=True
+            )

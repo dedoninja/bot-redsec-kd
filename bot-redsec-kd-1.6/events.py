@@ -196,8 +196,8 @@ async def run_auto_update(bot: discord.Bot):
             # Busca rank competitivo via /bf6/profile/ para o auto-update
             _pid_ev = info.get('persona_id')
             _nid_ev = info.get('nucleus_id')
-            comp_rank_ev, _ = await asyncio.to_thread(fetch_competitive_rank, _pid_ev, _nid_ev)
-            changes  = await apply_roles(member, guild, kd_val, human_pct, comp_rank_ev)
+            comp_rank_ev, comp_rank_name_ev = await asyncio.to_thread(fetch_competitive_rank, _pid_ev, _nid_ev)
+            changes  = await apply_roles(member, guild, kd_val, human_pct, comp_rank_ev, comp_rank_name_ev)
             updated += 1
 
             new_kd_roles = [r for r in member.roles if r.id in KD_ROLES]
