@@ -702,7 +702,7 @@
         <!-- ══════════ INTRO ══════════ -->
         <div class="intro-block">
             <p>Este é o <strong>painel de documentação exclusivo para a administração</strong> do Discord BFBR. Aqui você encontra a referência completa de todos os comandos do @BotRedsecKD, incluindo os comandos restritos à equipe de administração e a tabela de roles gerenciadas pelo bot.</p>
-            <p>O bot gerencia automaticamente as <strong>roles de KD Redsec</strong> dos membros cadastrados e cria e deleta <strong>salas de voz temporárias</strong>. Comandos com a tag <span class="badge-adm">ADM</span> só funcionam para quem tem permissão de administrador no servidor.</p>
+            <p>O bot gerencia automaticamente as <strong>roles de KD Redsec e de Rank</strong> dos membros cadastrados e cria e deleta <strong>salas de voz temporárias</strong>. Comandos com a tag <span class="badge-adm">ADM</span> só funcionam para quem tem permissão de administrador no servidor.</p>
         </div>
 
         <!-- ══════════ COMO FUNCIONA ══════════ -->
@@ -723,13 +723,12 @@
                 <div class="step-card">
                     <span class="step-num">// PASSO 02</span>
                     <div class="step-title">Receba sua role</div>
-                    <div class="step-desc">O bot busca seu KD do modo Squad da season atual e atribui a role correspondente. Tanto o botão quanto o comando <code>/kd</code> registram seus dados automaticamente.</div>
+                    <div class="step-desc">O bot busca seu KD do modo Squad geral e atribui a role correspondente. Tanto o botão quanto o comando <code>/kd</code> registram seus dados automaticamente.</div>
                 </div>
                 <div class="step-card">
                     <span class="step-num">// PASSO 03</span>
                     <div class="step-title">Atualização automática</div>
                     <div class="step-desc">Seu KD é verificado todo dia às 04:00 (Brasília). A role é atualizada automaticamente — tanto quem usou o botão quanto quem usou <code>/kd</code> recebe a atualização diária.</div>
-                    <div class="next-update-pill"><i class="fa-solid fa-arrows-rotate"></i> <span id="next-update">calculando...</span></div>
                 </div>
                 <div class="step-card">
                     <span class="step-num">// PASSO 04</span>
@@ -863,11 +862,46 @@ Dispara manualmente o ciclo de atualização automática para todos os cadastrad
                         <td><span class="role-pill kd">@Redsec KD2</span></td>
                         <td>Role de restrição de sala para KD entre 2.0 e 2.99 no modo Redsec. <span class="managed-by">Gerenciada automaticamente pelo @BotRedsecKD.</span></td>
                     </tr>
+                    <tr>
+                        <td colspan="2" style="padding: 10px 14px 6px; color: rgba(255,255,255,0.25); letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.82em; border-bottom: 1px solid var(--border);">// Roles de Rank (Ranked) — requerem perfil público</td>
+                    </tr>
+                    <tr>
+                        <td><span class="role-pill" style="color:#e02020;border-color:rgba(224,32,32,0.3);background:rgba(224,32,32,0.06);">@Rank Elite</span></td>
+                        <td>Rank Elite no modo Redsec Ranked. <span class="managed-by">Gerenciada automaticamente pelo @BotRedsecKD.</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="role-pill" style="color:#f08030;border-color:rgba(240,128,48,0.3);background:rgba(240,128,48,0.06);">@Rank Mestre</span></td>
+                        <td>Rank Mestre no modo Redsec Ranked. <span class="managed-by">Gerenciada automaticamente pelo @BotRedsecKD.</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="role-pill" style="color:#9b7ff7;border-color:rgba(155,127,247,0.3);background:rgba(155,127,247,0.06);">@Rank Diamante</span></td>
+                        <td>Rank Diamante no modo Redsec Ranked. <span class="managed-by">Gerenciada automaticamente pelo @BotRedsecKD.</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="role-pill" style="color:#50c8f0;border-color:rgba(80,200,240,0.3);background:rgba(80,200,240,0.06);">@Rank Platina</span></td>
+                        <td>Rank Platina no modo Redsec Ranked. <span class="managed-by">Gerenciada automaticamente pelo @BotRedsecKD.</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="role-pill" style="color:#ffd700;border-color:rgba(255,215,0,0.3);background:rgba(255,215,0,0.06);">@Rank Ouro</span></td>
+                        <td>Rank Ouro no modo Redsec Ranked. <span class="managed-by">Gerenciada automaticamente pelo @BotRedsecKD.</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="role-pill" style="color:#c0c0c0;border-color:rgba(192,192,192,0.3);background:rgba(192,192,192,0.06);">@Rank Prata</span></td>
+                        <td>Rank Prata no modo Redsec Ranked. <span class="managed-by">Gerenciada automaticamente pelo @BotRedsecKD.</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="role-pill" style="color:#cd7f32;border-color:rgba(205,127,50,0.3);background:rgba(205,127,50,0.06);">@Rank Bronze</span></td>
+                        <td>Rank Bronze no modo Redsec Ranked. <span class="managed-by">Gerenciada automaticamente pelo @BotRedsecKD.</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="role-pill">@Sem Rank</span></td>
+                        <td>Perfil privado ou sem partidas rankeadas (Unranked). Atribuída quando não é possível determinar o rank. <span class="managed-by">Gerenciada automaticamente pelo @BotRedsecKD.</span></td>
+                    </tr>
                 </tbody>
             </table>
 
             <div class="warn-box">
-                <strong style="color:#f0c040;"><i class="fa-solid fa-triangle-exclamation"></i> Importante:</strong> As roles de KD (@Redsec KD2 a @Redsec KD5+) são <strong>totalmente gerenciadas pelo bot</strong> e sobrescritas a cada atualização. Não atribua ou remova essas roles manualmente — o bot irá reverter na próxima atualização.
+                <strong style="color:#f0c040;"><i class="fa-solid fa-triangle-exclamation"></i> Importante:</strong> As roles de KD (@Redsec KD2 a @Redsec KD5+) e de Rank (@Rank Bronze a @Rank Elite / @Sem Rank) são <strong>totalmente gerenciadas pelo bot</strong> e sobrescritas a cada atualização. Não atribua ou remova essas roles manualmente — o bot irá reverter na próxima atualização. As roles de Rank só são atribuídas a membros com <strong>Compartilhamento de dados de gameplay</strong> habilitado no jogo.
             </div>
 
         </div>

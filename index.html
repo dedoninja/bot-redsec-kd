@@ -684,7 +684,7 @@
                 <span class="stat-label">Comunidade</span>
             </div>
             <div class="stat-card">
-                <span class="stat-value">v1.6.3</span>
+                <span class="stat-value">v1.6.5</span>
                 <span class="stat-label">Versão</span>
             </div>
         </div>
@@ -708,7 +708,7 @@
                 <div class="step-card">
                     <span class="step-num">// PASSO 02</span>
                     <div class="step-title">Receba sua role</div>
-                    <div class="step-desc">O bot busca seu KD do modo Squad da season atual e atribui a role correspondente. Tanto o botão quanto o comando <code>/kd</code> registram seus dados automaticamente.</div>
+                    <div class="step-desc">O bot busca seu KD do modo Squad geral e atribui a role correspondente. Tanto o botão quanto o comando <code>/kd</code> registram seus dados automaticamente.</div>
                 </div>
                 <div class="step-card">
                     <span class="step-num">// PASSO 03</span>
@@ -747,6 +747,52 @@
                     <span class="cmd-syntax"><span class="tag-ok"><i class="fa-solid fa-user"></i> Redsec KD5+</span></span>
                     <span class="cmd-desc">KD 5.0 ou acima no modo Redsec</span>
                 </div>
+            </div>
+
+            <!-- Roles de Rank Ranked -->
+            <div class="section-header">
+                <div class="section-header-line"></div>
+                <span class="section-title">// Roles de Rank (Ranked)</span>
+                <div class="section-header-line"></div>
+            </div>
+
+            <div class="commands-block" style="margin-bottom: 16px;">
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><span class="tag-na"><i class="fa-solid fa-user"></i> Sem Rank</span></span>
+                    <span class="cmd-desc">Perfil privado ou ainda sem partidas rankeadas (Unranked)</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><span style="color:#cd7f32;"><i class="fa-solid fa-medal"></i> Rank Bronze</span></span>
+                    <span class="cmd-desc">Rank Bronze no modo Redsec Ranked</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><span style="color:#c0c0c0;"><i class="fa-solid fa-medal"></i> Rank Prata</span></span>
+                    <span class="cmd-desc">Rank Prata no modo Redsec Ranked</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><span style="color:#ffd700;"><i class="fa-solid fa-medal"></i> Rank Ouro</span></span>
+                    <span class="cmd-desc">Rank Ouro no modo Redsec Ranked</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><span style="color:#50c8f0;"><i class="fa-solid fa-medal"></i> Rank Platina</span></span>
+                    <span class="cmd-desc">Rank Platina no modo Redsec Ranked</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><span style="color:#9b7ff7;"><i class="fa-solid fa-medal"></i> Rank Diamante</span></span>
+                    <span class="cmd-desc">Rank Diamante no modo Redsec Ranked</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><span style="color:#f08030;"><i class="fa-solid fa-crown"></i> Rank Mestre</span></span>
+                    <span class="cmd-desc">Rank Mestre no modo Redsec Ranked</span>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-syntax"><span style="color:#e02020;"><i class="fa-solid fa-crown"></i> Rank Elite</span></span>
+                    <span class="cmd-desc">Rank Elite no modo Redsec Ranked</span>
+                </div>
+            </div>
+
+            <div class="warn-box" style="margin-bottom: 24px;">
+                <strong><i class="fa-solid fa-circle-info"></i> Perfil público obrigatório:</strong> As roles de Rank só são atribuídas para perfis com <strong>Compartilhamento de dados</strong> habilitado. Para ativar: <strong>Opções → Sistema → Compartilhamento de dados de gameplay → SIM</strong>. Sem isso, seu rank aparecerá como <strong>Perfil Privado</strong>.
             </div>
 
             <!-- Comandos -->
@@ -830,8 +876,8 @@
                     <span class="cmd-desc">Cria uma sala restrita com o KD do jogador na categoria Jogando RedSec.</span>
                 </div>
                 <div class="cmd-row">
-                    <span class="cmd-syntax"><i class="fa-solid fa-plus" style="color:var(--red);margin-right:6px;"></i> Criar Sala Competitiva🏆</span>
-                    <span class="cmd-desc">Sala restrita a membros com role Competitivo na categoria Competitivo.</span>
+                    <span class="cmd-syntax"><i class="fa-solid fa-plus" style="color:var(--red);margin-right:6px;"></i> Criar Squad Rank...🔥</span>
+                    <span class="cmd-desc">Cria salas para partidas rankeadas na categoria Jogando Ranked. Algumas salas são restritas por role de rank (Bronze+, Prata+, Ouro+, etc.).</span>
                 </div>
             </div>
 
