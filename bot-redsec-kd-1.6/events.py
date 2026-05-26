@@ -219,7 +219,7 @@ async def run_auto_update(bot: discord.Bot):
 
     logs_channel = bot.get_channel(LOGS_CHANNEL_ID)
     if logs_channel:
-        dedo_mention = f"<@{DEDO_USER_ID}> " if failed > 0 else ""
+        dedo_mention = "⚠️ " if failed > 0 else ""
         summary = (
             f"{dedo_mention}**Atualização automática concluída!**\n"
             f"Total registrados: **{total}** | Atualizados: **{updated}** | Falhas (roles mantidas): **{failed}**\n"

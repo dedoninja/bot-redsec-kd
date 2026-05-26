@@ -63,6 +63,8 @@ VOICE_TRIGGER_MAP = {
     1507164861862510622: (1449414337977520312, "🔥 Squad Platina+ do {nick}"),# Criar Squad Platina+
     1507164880669507624: (1449414337977520312, "🔥 Squad Diamante+ do {nick}"),# Criar Squad Diamante+
     1507164903633584159: (1449414337977520312, "🔥 Squad Mestre+ do {nick}"), # Criar Squad Mestre+
+    # ── Campeonato/Scrim ────────────────────────────────────────────────────
+    1508609860936269865: (1508624477922131999, "🏆 Sala do {nick}"),          # Criar Sala Scrim/Campeonato
 }
 
 # Canais fixos que NUNCA devem ser deletados pelo bot
@@ -72,6 +74,8 @@ VOICE_PROTECTED_CHANNELS = {
     1432919538525016124,  # Lobby RedSec
     1449414468512649328,  # 🔥 Lobby Ranked
     1449434543839903837,  # 🔥┃chat-ranked (texto)
+    1508625119243931719,  # 📢 Briefing (Campeonato/Scrim)
+    1508609860936269865,  # ➕ Criar Sala Scrim/Campeonato🏆
 }
 
 # Categorias monitoradas pela varredura de salas vazias
@@ -80,6 +84,7 @@ VOICE_TARGET_CATEGORIES = {
     1440680027552350208,  # 🏟️ Jogando Arena/Gauntlet
     1432911097324765275,  # ⭕ Jogando RedSec
     1449414337977520312,  # 🔥 Jogando Ranked
+    1508624477922131999,  # 🏆 Salas Campeonato/Scrim
 }
 
 # Nome legível de cada categoria monitorada (para o relatório)
@@ -88,6 +93,13 @@ VOICE_CATEGORY_NAMES = {
     1440680027552350208:  "🏟️ Jogando Arena/Gauntlet",
     1432911097324765275:  "⭕ Jogando RedSec",
     1449414337977520312:  "🔥 Jogando Ranked",
+    1508624477922131999:  "🏆 Salas Campeonato/Scrim",
+}
+
+# Categorias cujas salas temporárias concedem Manage Channel ao criador
+VOICE_MANAGE_CHANNEL_CATEGORIES = {
+    459529456663396372,   # 🪖 Jogando Battlefield
+    1508624477922131999,  # 🏆 Salas Campeonato/Scrim
 }
 
 VOICE_COOLDOWN_SECONDS = 5

@@ -7,6 +7,7 @@ from config import (
     VOICE_TRIGGER_MAP,
     VOICE_PROTECTED_CHANNELS,
     VOICE_TARGET_CATEGORIES,
+    VOICE_MANAGE_CHANNEL_CATEGORIES,
     VOICE_COOLDOWN_SECONDS,
     LOGS_CHANNEL_ID,
 )
@@ -63,6 +64,7 @@ async def handle_voice_state_update(bot: discord.Bot, member: discord.Member, be
             move_members=True,
             connect=True,
             speak=True,
+            manage_channels=category_id in VOICE_MANAGE_CHANNEL_CATEGORIES,
         )
 
         try:
@@ -105,24 +107,27 @@ async def handle_voice_state_update(bot: discord.Bot, member: discord.Member, be
 
 async def voice_sweep_loop(bot: discord.Bot):
     await bot.wait_until_ready()
-    HORARIO_SWEEP = 4  # Mesmo horário do auto-update (04:00 Brasília)
-    FUSO_BRASILIA = timezone(timedelta(hours=-3))
+    FUSO_BRASILIA         = timezone(timedelta(hours=-3))
+    SWEEP_INTERVALO_HORAS = 4   # <- intervalo entre varreduras (em horas); ajuste aqui se necessario
 
     while not bot.is_closed():
         try:
-            agora   = datetime.now(FUSO_BRASILIA)
-            proximo = agora.replace(hour=HORARIO_SWEEP, minute=0, second=30, microsecond=0)  # +30s após o auto-update
-            if agora >= proximo:
-                proximo += timedelta(days=1)
-            espera  = (proximo - agora).total_seconds()
-            print(f"[VOICE-SWEEP] Próxima varredura às {proximo.strftime('%d/%m/%Y %H:%M')} (Brasília). Aguardando {espera/3600:.1f}h.")
+            agora = datetime.now(FUSO_BRASILIA)
+            # Calcula o proximo horario multiplo do intervalo (ex: 00:00, 04:00, 08:00, ...)
+            hora_atual     = agora.hour + agora.minute / 60 + agora.second / 3600
+            horas_passadas = hora_atual % SWEEP_INTERVALO_HORAS
+            horas_espera   = SWEEP_INTERVALO_HORAS - horas_passadas
+            proximo        = agora + timedelta(hours=horas_espera)
+            proximo        = proximo.replace(minute=0, second=0, microsecond=0)
+            espera         = (proximo - agora).total_seconds()
+            print(f"[VOICE-SWEEP] Proxima varredura as {proximo.strftime('%d/%m/%Y %H:%M')} (Brasilia). Aguardando {espera/3600:.1f}h.")
             await asyncio.sleep(espera)
             salas_deletadas = await run_voice_sweep(bot)
             # Reporta no canal de logs se deletou salas
             if salas_deletadas > 0:
                 logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
                 if logs_ch:
-                    await logs_ch.send(f"🧹 Varredura 04:00 — **{salas_deletadas}** sala(s) de voz vazia(s) removida(s).")
+                    await logs_ch.send(f"🧹 Varredura {proximo.strftime('%H:%M')} — **{salas_deletadas}** sala(s) de voz vazia(s) removida(s).")
         except Exception as e:
             print(f"[VOICE-SWEEP] Erro no loop: {e}")
             await asyncio.sleep(60)
@@ -149,7 +154,7 @@ async def run_voice_sweep(bot: discord.Bot) -> int:
         # Só deleta se estiver vazio
         if len(channel.members) == 0:
             try:
-                await channel.delete(reason="Varredura 04:00 — sala vazia")
+                await channel.delete(reason="Varredura — sala vazia")
                 deletados += 1
             except discord.Forbidden:
                 print(f"[VOICE-SWEEP] Sem permissão para deletar '{channel.name}'")
