@@ -13,7 +13,10 @@ def make_session() -> requests.Session:
 
 def make_links(gamertag: str, platform: str, persona_id: str = None, nucleus_id: str = None) -> str:
     """Gera links clicáveis [Stats] e [JSON] sem thumbnail para uso nos canais de log/ADM."""
-    stats_link = f"[Stats](<https://gametools.network/stats/{platform}/name/{gamertag}?game=bf6>)"
+    if nucleus_id:
+        stats_link = f"[Stats](<https://battlefield.joarchy.com/p/{nucleus_id}>)"
+    else:
+        stats_link = f"[Stats](<https://gametools.network/stats/{platform}/name/{gamertag}?game=bf6>)"
     if persona_id and nucleus_id:
         json_url = f"https://api.gametools.network/bf6/stats/?playerid={persona_id}&nucleus_id={nucleus_id}"
     else:

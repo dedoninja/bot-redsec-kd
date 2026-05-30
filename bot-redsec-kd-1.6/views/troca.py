@@ -1,7 +1,33 @@
 import discord
+import asyncio
 from discord.ui import Button, View, Modal, InputText
 from database import load_users
 from config import TROCA_GAMETAG_CHANNEL_ID
+from api import fetch_stats
+
+
+async def _verificar_gametag_existe(gamertag: str, plataforma: str, tentativas: int = 3, espera: int = 8) -> bool:
+    """
+    Tenta verificar se a gametag existe na API com múltiplas tentativas.
+    Retorna True se a conta for encontrada (mesmo sem stats Redsec), False se não encontrada.
+    api_error é tratado como inconclusivo e tenta novamente.
+    """
+    for tentativa in range(1, tentativas + 1):
+        resultado = await asyncio.to_thread(fetch_stats, gamertag, plataforma)
+        if resultado is None:
+            # Conta definitivamente não encontrada
+            return False
+        if resultado == "api_error":
+            # API instável — aguarda e tenta novamente
+            print(f"[TROCA] Verificação de '{gamertag}' — tentativa {tentativa}/{tentativas}: api_error. Aguardando {espera}s...")
+            if tentativa < tentativas:
+                await asyncio.sleep(espera)
+            continue
+        # Retornou dados: conta existe
+        return True
+    # Após todas as tentativas com api_error, considera inconclusivo (permite prosseguir)
+    print(f"[TROCA] Verificação de '{gamertag}' inconclusiva após {tentativas} tentativas (API instável). Permitindo solicitação.")
+    return True
 
 
 class TrocaGametagModal(Modal):
@@ -35,6 +61,17 @@ class TrocaGametagModal(Modal):
         gametag_atual = current_data.get('gamertag', 'N/A')
         plataforma_atual = current_data.get('platform', 'N/A')
 
+        # Verifica se a nova gametag existe na API antes de enviar ao staff
+        await interaction.response.defer(ephemeral=True)
+        gametag_encontrada = await _verificar_gametag_existe(nova_gametag, nova_plataforma)
+        if not gametag_encontrada:
+            await interaction.followup.send(
+                f"❌ A ID `{nova_gametag}` não foi encontrada na plataforma `{nova_plataforma}`. "
+                f"Verifique se o ID e a plataforma estão corretos e tente novamente.",
+                ephemeral=True
+            )
+            return
+
         troca_channel = bot.get_channel(TROCA_GAMETAG_CHANNEL_ID)
         if troca_channel:
             view = AprovarTrocaView(bot, interaction.user.id, nova_gametag, nova_plataforma)
@@ -49,7 +86,7 @@ class TrocaGametagModal(Modal):
                 view=view
             )
 
-        await interaction.response.send_message("✅ Solicitação enviada!", ephemeral=True)
+        await interaction.followup.send("✅ Solicitação enviada!", ephemeral=True)
 
 
 class TrocaGametagView(View):

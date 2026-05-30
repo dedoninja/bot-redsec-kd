@@ -95,6 +95,9 @@ async def run_auto_update(bot: discord.Bot):
     fail_details  = []   # Detalhes de falhas
     removed_users = {}   # Usuários que saíram do servidor
 
+    # Fila de retry: players que falharam com api_error na primeira passagem
+    retry_queue = []
+
     for discord_id, info in list(users.items()):
         gamertag   = info.get('gamertag')
         platform   = info.get('platform', 'ea')
@@ -175,9 +178,8 @@ async def run_auto_update(bot: discord.Bot):
                         save_users(users)
 
             if data == "api_error":
-                print(f"[AUTO-UPDATE] API instável para {gamertag}, mantendo roles.")
-                fail_details.append(f"- {member.mention} `{gamertag}` ({platform}) — API de stats instável")
-                failed += 1
+                print(f"[AUTO-UPDATE] API instável para {gamertag}, adicionando à fila de retry.")
+                retry_queue.append((discord_id, info, member))
                 continue
             if data is None:
                 print(f"[AUTO-UPDATE] {gamertag} não encontrado na API, mantendo roles.")
@@ -209,6 +211,63 @@ async def run_auto_update(bot: discord.Bot):
             print(f"[AUTO-UPDATE] Erro ao processar {discord_id}: {e}")
             failed += 1
             continue
+
+    # ================== RETRY PASS ==================
+    # Players que falharam com api_error ganham uma segunda tentativa após 10s de espera
+    if retry_queue:
+        print(f"[AUTO-UPDATE] Retry em 10s para {len(retry_queue)} player(s) com erro de API...")
+        await asyncio.sleep(10)
+
+        for discord_id, info, member in retry_queue:
+            gamertag = info.get('gamertag')
+            platform = info.get('platform', 'ea')
+            try:
+                persona_id = info.get('persona_id')
+                nucleus_id = info.get('nucleus_id')
+
+                if persona_id and nucleus_id:
+                    if platform == 'pc':
+                        retry_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}"
+                    else:
+                        retry_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
+                    session = make_session()
+                    try:
+                        resp = session.get(retry_url, timeout=15)
+                        data = resp.json() if resp.status_code == 200 else None
+                        if data is None:
+                            data = "api_error" if resp.status_code == 500 else None
+                    except Exception:
+                        data = "api_error"
+                else:
+                    data = await asyncio.to_thread(fetch_stats, gamertag, platform)
+
+                if data == "api_error" or data is None:
+                    reason = "API de stats instável" if data == "api_error" else "ID não encontrado na API"
+                    print(f"[AUTO-UPDATE][RETRY] {gamertag} ainda falhando: {reason}")
+                    fail_details.append(f"- {member.mention} `{gamertag}` ({platform}) — {reason}")
+                    failed += 1
+                    continue
+
+                kd_val, human_pct = extract_kd_and_human(data)
+                if kd_val == 0.0:
+                    print(f"[AUTO-UPDATE][RETRY] {gamertag} sem stats no Redsec, mantendo roles.")
+                    fail_details.append(f"- {member.mention} `{gamertag}` ({platform}) — Sem partidas no Redsec")
+                    failed += 1
+                    continue
+
+                _pid_ev = info.get('persona_id')
+                _nid_ev = info.get('nucleus_id')
+                comp_rank_ev, comp_rank_name_ev = await asyncio.to_thread(fetch_competitive_rank, _pid_ev, _nid_ev)
+                await apply_roles(member, guild, kd_val, human_pct, comp_rank_ev, comp_rank_name_ev)
+                updated += 1
+                print(f"[AUTO-UPDATE][RETRY] {gamertag} — OK no retry. KD: {kd_val:.2f}")
+
+                await asyncio.sleep(3)
+
+            except Exception as e:
+                print(f"[AUTO-UPDATE][RETRY] Erro ao processar {discord_id}: {e}")
+                failed += 1
+                continue
 
     # Remove do JSON quem saiu do servidor
     if removed_users:
