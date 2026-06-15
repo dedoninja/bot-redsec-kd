@@ -120,25 +120,27 @@ async def voice_sweep_loop(bot: discord.Bot):
             espera         = (proximo - agora).total_seconds()
             print(f"[VOICE-SWEEP] Proxima varredura as {proximo.strftime('%d/%m/%Y %H:%M')} (Brasilia). Aguardando {espera/3600:.1f}h.")
             await asyncio.sleep(espera)
-            salas_deletadas = await run_voice_sweep(bot)
+            salas_deletadas, nomes_deletados = await run_voice_sweep(bot)
             # Reporta no canal de logs se deletou salas
             if salas_deletadas > 0:
                 logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
                 if logs_ch:
-                    await logs_ch.send(f"🧹 Varredura {proximo.strftime('%H:%M')} — **{salas_deletadas}** sala(s) de voz vazia(s) removida(s).")
+                    lista = "\n".join(f"• {nome}" for nome in nomes_deletados)
+                    await logs_ch.send(f"🧹 Varredura {proximo.strftime('%H:%M')} — **{salas_deletadas}** sala(s) de voz vazia(s) removida(s).\n{lista}")
         except Exception as e:
             print(f"[VOICE-SWEEP] Erro no loop: {e}")
             await asyncio.sleep(60)
 
 
-async def run_voice_sweep(bot: discord.Bot) -> int:
+async def run_voice_sweep(bot: discord.Bot) -> tuple[int, list[str]]:
     print(f"[VOICE-SWEEP] Iniciando varredura - {datetime.utcnow().isoformat()}")
     guild = bot.get_guild(SERVER_ID)
     if not guild:
         print("[VOICE-SWEEP] Servidor não encontrado.")
-        return 0
+        return 0, []
 
     deletados = 0
+    nomes_deletados: list[str] = []
     for channel in list(guild.voice_channels):
         # Só canais nas categorias monitoradas
         if not channel.category_id or channel.category_id not in VOICE_TARGET_CATEGORIES:
@@ -151,15 +153,17 @@ async def run_voice_sweep(bot: discord.Bot) -> int:
             continue
         # Só deleta se estiver vazio
         if len(channel.members) == 0:
+            nome = channel.name
             try:
                 await channel.delete(reason="Varredura — sala vazia")
                 deletados += 1
+                nomes_deletados.append(nome)
             except discord.Forbidden:
-                print(f"[VOICE-SWEEP] Sem permissão para deletar '{channel.name}'")
+                print(f"[VOICE-SWEEP] Sem permissão para deletar '{nome}'")
             except Exception:
                 pass
             finally:
                 _temp_voice_channels.discard(channel.id)
 
     print(f"[VOICE-SWEEP] Concluída. Salas removidas: {deletados}")
-    return deletados
+    return deletados, nomes_deletados
