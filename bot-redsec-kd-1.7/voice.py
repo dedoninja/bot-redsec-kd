@@ -97,6 +97,9 @@ async def handle_voice_state_update(bot: discord.Bot, member: discord.Member, be
                 await channel.delete(reason="Sala temporária vazia")
             except discord.Forbidden:
                 print(f"[VOICE] Sem permissão para deletar '{channel.name}'")
+            except discord.NotFound:
+                # Sala já foi removida (ex: pela varredura periódica) — não é um erro real
+                pass
             except Exception as e:
                 print(f"[VOICE] Erro ao deletar sala: {e}")
             finally:
@@ -125,7 +128,7 @@ async def voice_sweep_loop(bot: discord.Bot):
             if salas_deletadas > 0:
                 logs_ch = bot.get_channel(LOGS_CHANNEL_ID)
                 if logs_ch:
-                    lista = "\n".join(f"• {nome}" for nome in nomes_deletados)
+                    lista = "\n".join(f"- {nome}" for nome in nomes_deletados)
                     await logs_ch.send(f"🧹 Varredura {proximo.strftime('%H:%M')} — **{salas_deletadas}** sala(s) de voz vazia(s) removida(s).\n{lista}")
         except Exception as e:
             print(f"[VOICE-SWEEP] Erro no loop: {e}")

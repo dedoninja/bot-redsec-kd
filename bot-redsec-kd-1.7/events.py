@@ -95,6 +95,10 @@ async def run_auto_update(bot: discord.Bot):
     # Fila de retry: players que falharam com api_error na primeira passagem
     retry_queue = []
 
+    # Sessão HTTP única reutilizada em todo o auto-update (evita vazamento de
+    # memória por centenas de sessões abertas, uma por usuário)
+    session = make_session()
+
     for discord_id, info in list(users.items()):
         gamertag   = info.get('gamertag')
         platform   = info.get('platform', 'ea')
@@ -118,7 +122,6 @@ async def run_auto_update(bot: discord.Bot):
                     fixed_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}"
                 else:
                     fixed_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
-                session   = make_session()
                 try:
                     resp = session.get(fixed_url, timeout=15)
                     data = resp.json() if resp.status_code == 200 else None
@@ -227,7 +230,6 @@ async def run_auto_update(bot: discord.Bot):
                         retry_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}"
                     else:
                         retry_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
-                    session = make_session()
                     try:
                         resp = session.get(retry_url, timeout=15)
                         data = resp.json() if resp.status_code == 200 else None
@@ -265,6 +267,12 @@ async def run_auto_update(bot: discord.Bot):
                 print(f"[AUTO-UPDATE][RETRY] Erro ao processar {discord_id}: {e}")
                 failed += 1
                 continue
+
+    # Fecha a sessão HTTP compartilhada após processar todos os usuários
+    try:
+        session.close()
+    except Exception:
+        pass
 
     # Remove do JSON quem saiu do servidor
     if removed_users:
