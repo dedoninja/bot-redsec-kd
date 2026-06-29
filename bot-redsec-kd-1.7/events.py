@@ -123,7 +123,8 @@ async def run_auto_update(bot: discord.Bot):
                 else:
                     fixed_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
                 try:
-                    resp = session.get(fixed_url, timeout=15)
+                    # Executa a requisição HTTP bloqueante em thread separada para não travar o event loop
+                    resp = await asyncio.to_thread(session.get, fixed_url, timeout=15)
                     data = resp.json() if resp.status_code == 200 else None
                     if data is None:
                         data = "api_error" if resp.status_code == 500 else None
@@ -136,14 +137,16 @@ async def run_auto_update(bot: discord.Bot):
                     kd_check, _ = check_kd(data)
                     # Corrige plataforma desatualizada (ex: 'pc') aproveitando a passagem
                     if platform == 'pc' and kd_check > 0.0:
-                        pid_r, nid_r, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag)
+                        # Passa a session compartilhada para evitar abertura de nova sessão
+                        pid_r, nid_r, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag, session)
                         if plat_resolved and plat_resolved != 'pc':
                             print(f"[AUTO-UPDATE] {gamertag} — Plataforma corrigida: pc → {plat_resolved}")
                             users[discord_id]['platform'] = plat_resolved
                             save_users(users)
                     if kd_check == 0.0:
                         print(f"[AUTO-UPDATE] {gamertag} — IDs salvos retornaram KD 0.00, tentando fallback por nome...")
-                        data_fallback = await asyncio.to_thread(fetch_stats, gamertag, platform)
+                        # Passa a session compartilhada para evitar abertura de nova sessão
+                        data_fallback = await asyncio.to_thread(fetch_stats, gamertag, platform, None, None, session)
                         if data_fallback and data_fallback != "api_error":
                             kd_fallback, _ = check_kd(data_fallback)
                             if kd_fallback > 0.0:
@@ -151,7 +154,8 @@ async def run_auto_update(bot: discord.Bot):
                                 print(f"[AUTO-UPDATE] {gamertag} — Fallback bem-sucedido! KD: {kd_fallback:.2f}")
                                 data = data_fallback
                                 # Atualiza os IDs e plataforma no JSON para próximas vezes
-                                pid, nid, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag)
+                                # Passa a session compartilhada para evitar abertura de nova sessão
+                                pid, nid, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag, session)
                                 if pid and nid:
                                     users[discord_id]['persona_id'] = pid
                                     users[discord_id]['nucleus_id']  = nid
@@ -160,13 +164,15 @@ async def run_auto_update(bot: discord.Bot):
                                         users[discord_id]['platform'] = plat_resolved
                                     save_users(users)
             else:
-                data = await asyncio.to_thread(fetch_stats, gamertag, platform)
+                # Passa a session compartilhada para evitar abertura de nova sessão
+                data = await asyncio.to_thread(fetch_stats, gamertag, platform, None, None, session)
                 # Se conseguiu dados, extrai IDs do próprio JSON de stats (não depende do /bf6/player)
                 if data and data != "api_error":
                     pid, nid = extract_ids_from_stats(data)
                     if not (pid and nid):
                         # Fallback via /bf6/player se não veio no JSON
-                        pid, nid, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag)
+                        # Passa a session compartilhada para evitar abertura de nova sessão
+                        pid, nid, plat_resolved = await asyncio.to_thread(resolve_player_ids_with_platform, gamertag, session)
                     else:
                         plat_resolved = data.get('platform', platform)
                     if pid and nid:
@@ -196,9 +202,10 @@ async def run_auto_update(bot: discord.Bot):
                 continue
 
             # Busca rank competitivo via /bf6/profile/ para o auto-update
+            # Passa a session compartilhada para evitar abertura de nova sessão
             _pid_ev = info.get('persona_id')
             _nid_ev = info.get('nucleus_id')
-            comp_rank_ev, comp_rank_name_ev = await asyncio.to_thread(fetch_competitive_rank, _pid_ev, _nid_ev)
+            comp_rank_ev, comp_rank_name_ev = await asyncio.to_thread(fetch_competitive_rank, _pid_ev, _nid_ev, session)
             changes  = await apply_roles(member, guild, kd_val, human_pct, comp_rank_ev, comp_rank_name_ev)
             updated += 1
 
@@ -231,14 +238,16 @@ async def run_auto_update(bot: discord.Bot):
                     else:
                         retry_url = f"{BASE_STATS_URL}&playerid={persona_id}&nucleus_id={nucleus_id}&platform={platform}"
                     try:
-                        resp = session.get(retry_url, timeout=15)
+                        # Executa a requisição HTTP bloqueante em thread separada para não travar o event loop
+                        resp = await asyncio.to_thread(session.get, retry_url, timeout=15)
                         data = resp.json() if resp.status_code == 200 else None
                         if data is None:
                             data = "api_error" if resp.status_code == 500 else None
                     except Exception:
                         data = "api_error"
                 else:
-                    data = await asyncio.to_thread(fetch_stats, gamertag, platform)
+                    # Passa a session compartilhada para evitar abertura de nova sessão
+                    data = await asyncio.to_thread(fetch_stats, gamertag, platform, None, None, session)
 
                 if data == "api_error" or data is None:
                     reason = "API de stats instável" if data == "api_error" else "ID não encontrado na API"
@@ -256,7 +265,8 @@ async def run_auto_update(bot: discord.Bot):
 
                 _pid_ev = info.get('persona_id')
                 _nid_ev = info.get('nucleus_id')
-                comp_rank_ev, comp_rank_name_ev = await asyncio.to_thread(fetch_competitive_rank, _pid_ev, _nid_ev)
+                # Passa a session compartilhada para evitar abertura de nova sessão
+                comp_rank_ev, comp_rank_name_ev = await asyncio.to_thread(fetch_competitive_rank, _pid_ev, _nid_ev, session)
                 await apply_roles(member, guild, kd_val, human_pct, comp_rank_ev, comp_rank_name_ev)
                 updated += 1
                 print(f"[AUTO-UPDATE][RETRY] {gamertag} — OK no retry. KD: {kd_val:.2f}")
