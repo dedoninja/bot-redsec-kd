@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Política de Privacidade — Bot Redsec BFBR</title>
+    <title>Termos de Serviço — Bot Redsec BFBR</title>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/dedoninja/bot-redsec-kd/main/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -83,7 +83,6 @@
             align-items: center;
         }
 
-        /* ── Status bar ── */
         .status-bar {
             width: 100%;
             display: flex;
@@ -108,7 +107,6 @@
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ── Headline ── */
         .headline-block {
             text-align: center;
             margin-bottom: 6px;
@@ -149,7 +147,6 @@
             margin-top: 10px;
         }
 
-        /* ── Divider ── */
         .divider {
             width: 100%;
             max-width: 700px;
@@ -166,7 +163,6 @@
         }
         .divider-icon { color: var(--red); font-size: 0.9em; opacity: 0.7; }
 
-        /* ── Back button ── */
         .back-btn {
             display: inline-flex;
             align-items: center;
@@ -183,7 +179,6 @@
         }
         .back-btn:hover { color: rgba(255,255,255,0.7); }
 
-        /* ── Content sections ── */
         .content-block {
             width: 100%;
             max-width: 700px;
@@ -220,9 +215,7 @@
             margin-bottom: 16px;
         }
 
-        .prose strong {
-            color: rgba(255,255,255,0.75);
-        }
+        .prose strong { color: rgba(255,255,255,0.75); }
 
         .prose a {
             color: var(--red);
@@ -231,41 +224,6 @@
         }
         .prose a:hover { color: #ff4444; }
 
-        /* Data table */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-family: var(--mono);
-            font-size: 0.88em;
-            margin-bottom: 20px;
-        }
-
-        .data-table th {
-            text-align: left;
-            padding: 9px 14px;
-            color: rgba(255,255,255,0.3);
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            font-size: 0.9em;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .data-table td {
-            padding: 10px 14px;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-            color: rgba(255,255,255,0.45);
-            line-height: 1.45;
-            vertical-align: top;
-        }
-
-        .data-table tr:last-child td { border-bottom: none; }
-
-        .data-table td:first-child {
-            color: var(--white);
-            white-space: nowrap;
-        }
-
-        /* Info card */
         .info-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -298,7 +256,20 @@
         }
         .info-card .card-body a:hover { color: #ff4444; }
 
-        /* Lang switcher */
+        .disclaimer-box {
+            background: rgba(224,32,32,0.05);
+            border: 1px solid var(--border-red);
+            border-left: 3px solid var(--red);
+            padding: 13px 16px;
+            border-radius: 2px;
+            font-family: var(--mono);
+            font-size: 0.85em;
+            color: rgba(255,255,255,0.4);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        .disclaimer-box strong { color: rgba(255,255,255,0.65); }
+
         .lang-switcher {
             display: flex;
             gap: 8px;
@@ -329,26 +300,9 @@
             color: rgba(255,255,255,0.6);
         }
 
-        /* Language sections */
         .lang-section { display: none; }
         .lang-section.active { display: block; }
 
-        /* Disclaimer */
-        .disclaimer-box {
-            background: rgba(224,32,32,0.05);
-            border: 1px solid var(--border-red);
-            border-left: 3px solid var(--red);
-            padding: 13px 16px;
-            border-radius: 2px;
-            font-family: var(--mono);
-            font-size: 0.85em;
-            color: rgba(255,255,255,0.4);
-            line-height: 1.6;
-            margin-bottom: 16px;
-        }
-        .disclaimer-box strong { color: rgba(255,255,255,0.65); }
-
-        /* Footer */
         .footer {
             font-family: var(--mono);
             font-size: 0.7em;
@@ -367,8 +321,7 @@
         .footer a:hover { color: rgba(255,255,255,0.55); }
 
         @media (max-width: 560px) {
-            .data-table th, .data-table td { padding: 8px 10px; }
-            .data-table td:first-child { white-space: normal; }
+            .info-card .card-body { font-size: 0.85em; }
         }
     </style>
 </head>
@@ -382,7 +335,7 @@
         <div class="status-bar">
             <span>MNV // MORRI NEM VI</span>
             <span>BOT REDSEC // BFBR</span>
-            <span>PRIVACIDADE</span>
+            <span>TERMOS DE SERVIÇO</span>
         </div>
 
         <!-- Back -->
@@ -392,7 +345,7 @@
 
         <!-- Headline -->
         <div class="headline-block">
-            <div class="label-tag">// Política de Privacidade</div>
+            <div class="label-tag">// Termos de Serviço</div>
             <h1>Bot <span>Redsec</span> BFBR</h1>
             <p class="subtitle">Última atualização: Julho de 2026 &nbsp;|&nbsp; Last updated: July 2026</p>
         </div>
@@ -400,7 +353,7 @@
         <!-- Divider -->
         <div class="divider">
             <div class="divider-line"></div>
-            <i class="divider-icon fa-solid fa-shield-halved"></i>
+            <i class="divider-icon fa-solid fa-file-contract"></i>
             <div class="divider-line"></div>
         </div>
 
@@ -418,157 +371,138 @@
                     <strong>Aviso:</strong> O Bot Redsec KD e a comunidade BFBR não possuem qualquer vínculo oficial com a EA, DICE ou a marca Battlefield. Este é um bot independente criado para auxiliar na gestão de uma comunidade de jogadores de Battlefield no Discord.
                 </div>
 
-                <!-- 1. O que é -->
+                <!-- 1. Aceitação -->
                 <div class="section-header">
                     <div class="section-header-line"></div>
-                    <span class="section-title">// 01. O que é este bot</span>
+                    <span class="section-title">// 01. Aceitação dos termos</span>
                     <div class="section-header-line"></div>
                 </div>
 
                 <p class="prose">
-                    O <strong>Bot Redsec KD</strong> é um bot do Discord criado para a comunidade <strong>Battlefield Brasil (BFBR)</strong>. Suas funções principais são rastrear estatísticas de Battlefield 6 dos jogadores (KD, rank competitivo, etc.) por meio da API pública <a href="https://api.gametools.network/docs" target="_blank">gametools.network</a>, atribuir cargos no Discord com base no desempenho, gerenciar salas de voz temporárias e executar atualizações automáticas diárias das estatísticas dos jogadores cadastrados.
+                    Ao utilizar o <strong>Bot Redsec KD</strong> no servidor Discord do Battlefield Brasil (BFBR), você concorda com estes Termos de Serviço. O uso do bot é voluntário e restrito ao servidor BFBR. Se não concordar com estes termos, basta não utilizar os comandos do bot.
                 </p>
 
-                <!-- 2. Dados coletados -->
+                <!-- 2. O que é o serviço -->
                 <div class="section-header">
                     <div class="section-header-line"></div>
-                    <span class="section-title">// 02. Dados coletados</span>
-                    <div class="section-header-line"></div>
-                </div>
-
-                <p class="prose">Os dados abaixo são coletados no momento do cadastro e atualizados automaticamente a cada 24 horas:</p>
-
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Dado</th>
-                            <th>Origem</th>
-                            <th>Finalidade</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Discord ID</td>
-                            <td>Discord</td>
-                            <td>Identificar o usuário no banco de dados</td>
-                        </tr>
-                        <tr>
-                            <td>Gamertag EA</td>
-                            <td>Informado pelo usuário</td>
-                            <td>Buscar estatísticas na API gametools.network</td>
-                        </tr>
-                        <tr>
-                            <td>Plataforma</td>
-                            <td>Informado pelo usuário</td>
-                            <td>Filtrar corretamente os dados na API (ea, steam, psn, xbox, epic)</td>
-                        </tr>
-                        <tr>
-                            <td>Data de cadastro</td>
-                            <td>Gerado pelo bot</td>
-                            <td>Registro interno</td>
-                        </tr>
-                        <tr>
-                            <td>persona_id / nucleus_id</td>
-                            <td>API gametools.network (pública)</td>
-                            <td>Identificadores técnicos da conta EA usados para consultas futuras à API</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <p class="prose">
-                    Estatísticas de jogo (KD, rank, Human%, etc.) são consultadas em tempo real na API pública <a href="https://api.gametools.network/docs" target="_blank">gametools.network</a> e <strong>não são armazenadas</strong> — apenas exibidas sob demanda.
-                </p>
-
-                <!-- 3. Onde são armazenados -->
-                <div class="section-header">
-                    <div class="section-header-line"></div>
-                    <span class="section-title">// 03. Onde os dados são armazenados</span>
+                    <span class="section-title">// 02. Descrição do serviço</span>
                     <div class="section-header-line"></div>
                 </div>
 
                 <p class="prose">
-                    Os dados são armazenados em um arquivo <strong>users.json</strong> em um servidor privado hospedado na plataforma <strong>Fly.io</strong> (região São Paulo, Brasil). Nenhum dado é compartilhado com terceiros, vendido ou utilizado para treinar modelos de inteligência artificial.
-                </p>
-
-                <!-- 4. Retenção -->
-                <div class="section-header">
-                    <div class="section-header-line"></div>
-                    <span class="section-title">// 04. Retenção e exclusão</span>
-                    <div class="section-header-line"></div>
-                </div>
-
-                <div class="info-card">
-                    <div class="card-title"><i class="fa-solid fa-clock" style="color:var(--red);margin-right:8px;"></i>Remoção automática</div>
-                    <div class="card-body">Ao sair do servidor BFBR, seus dados são removidos automaticamente do banco de dados em até <strong>24 horas</strong>.</div>
-                </div>
-
-                <div class="info-card">
-                    <div class="card-title"><i class="fa-solid fa-user-xmark" style="color:var(--red);margin-right:8px;"></i>Remoção manual</div>
-                    <div class="card-body">Enquanto você permanecer no servidor, pode solicitar a exclusão dos seus dados a qualquer momento entrando em contato com um membro da <strong>@Staff BFBR</strong> ou diretamente com o administrador do bot, <a href="https://discord.com/users/84299190288523264" target="_blank">@Dedo_Ninja</a>, via Discord.</div>
-                </div>
-
-                <!-- 5. Intents do Discord -->
-                <div class="section-header">
-                    <div class="section-header-line"></div>
-                    <span class="section-title">// 05. Permissões do Discord (Privileged Intents)</span>
-                    <div class="section-header-line"></div>
-                </div>
-
-                <p class="prose">O bot utiliza as seguintes permissões privilegiadas do Discord:</p>
-
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Permissão</th>
-                            <th>Para que é usada</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Server Members Intent</td>
-                            <td>Gerenciar salas de voz temporárias (detectar canais vazios para deletá-los automaticamente) e atribuir cargos aos membros</td>
-                        </tr>
-                        <tr>
-                            <td>Message Content Intent</td>
-                            <td>Compatibilidade com comandos de prefixo legados (!comando) utilizados em versões anteriores do bot</td>
-                        </tr>
-                        <tr>
-                            <td>Presence Intent</td>
-                            <td>Reservado para funcionalidades futuras relacionadas ao status de presença dos jogadores</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <!-- 6. LGPD -->
-                <div class="section-header">
-                    <div class="section-header-line"></div>
-                    <span class="section-title">// 06. LGPD (Lei Geral de Proteção de Dados)</span>
-                    <div class="section-header-line"></div>
-                </div>
-
-                <p class="prose">
-                    Em conformidade com a <strong>Lei nº 13.709/2018 (LGPD)</strong>, você tem os seguintes direitos sobre seus dados:
+                    O Bot Redsec KD é uma ferramenta gratuita que oferece os seguintes serviços dentro do servidor BFBR:
                 </p>
 
                 <div class="info-card">
                     <div class="card-body">
-                        <strong style="color:rgba(255,255,255,0.75);">• Acesso:</strong> Solicitar quais dados seus estão armazenados.<br>
-                        <strong style="color:rgba(255,255,255,0.75);">• Correção:</strong> Solicitar correção de dados incorretos (ex: gamertag errada).<br>
-                        <strong style="color:rgba(255,255,255,0.75);">• Exclusão:</strong> Solicitar a remoção dos seus dados a qualquer momento.<br>
-                        <strong style="color:rgba(255,255,255,0.75);">• Portabilidade:</strong> Solicitar seus dados em formato legível.<br><br>
-                        Para exercer qualquer um desses direitos, entre em contato via Discord com <a href="https://discord.com/users/84299190288523264" target="_blank">@Dedo_Ninja</a> ou com qualquer membro da <strong>@Staff BFBR</strong> no servidor <a href="https://discord.gg/YUAkpKM" target="_blank">Battlefield Brasil</a>.
+                        <strong style="color:rgba(255,255,255,0.75);">• Consulta de KD:</strong> Busca e exibe estatísticas de Battlefield 6 via API pública gametools.network.<br>
+                        <strong style="color:rgba(255,255,255,0.75);">• Atribuição de cargos:</strong> Concede cargos no Discord com base no KD e rank competitivo do jogador.<br>
+                        <strong style="color:rgba(255,255,255,0.75);">• Salas de voz temporárias:</strong> Criação e gerenciamento automático de canais de voz.<br>
+                        <strong style="color:rgba(255,255,255,0.75);">• Atualização automática:</strong> Atualiza as estatísticas e cargos dos jogadores cadastrados diariamente.
                     </div>
                 </div>
 
-                <!-- 7. Contato -->
+                <!-- 3. Cadastro -->
                 <div class="section-header">
                     <div class="section-header-line"></div>
-                    <span class="section-title">// 07. Contato</span>
+                    <span class="section-title">// 03. Cadastro e uso</span>
                     <div class="section-header-line"></div>
                 </div>
 
                 <p class="prose">
-                    Dúvidas sobre esta política? Entre em contato pelo servidor do Discord:<br>
+                    Para se cadastrar, o usuário deve informar voluntariamente sua <strong>gamertag EA</strong> e <strong>plataforma</strong>. O cadastro implica que o usuário:
+                </p>
+
+                <div class="info-card">
+                    <div class="card-body">
+                        • Possui direito legítimo de uso da gamertag informada.<br>
+                        • Autoriza o bot a consultar suas estatísticas públicas de jogo via API gametools.network.<br>
+                        • Autoriza o armazenamento do seu Discord ID, gamertag, plataforma e identificadores técnicos da conta EA (persona_id / nucleus_id) para fins de funcionamento do bot.<br>
+                        • Compreende que seus cargos no servidor serão atribuídos ou alterados automaticamente com base nas estatísticas obtidas.
+                    </div>
+                </div>
+
+                <!-- 4. Regras de uso -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 04. Regras de uso</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <p class="prose">É proibido utilizar o bot para:</p>
+
+                <div class="info-card">
+                    <div class="card-body">
+                        • Cadastrar gamertags de terceiros sem autorização.<br>
+                        • Tentar manipular, burlar ou explorar qualquer funcionalidade do bot.<br>
+                        • Qualquer uso que viole as <a href="https://discord.com/terms" target="_blank">Termos de Serviço do Discord</a> ou as regras do servidor BFBR.<br>
+                        • Tentativas de abuso das salas de voz temporárias ou dos sistemas de cargo.
+                    </div>
+                </div>
+
+                <p class="prose">
+                    O descumprimento destas regras pode resultar em banimento das funcionalidades do bot ou do servidor, a critério da Staff BFBR.
+                </p>
+
+                <!-- 5. Disponibilidade -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 05. Disponibilidade</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <p class="prose">
+                    O bot é oferecido gratuitamente e sem garantia de disponibilidade contínua. Podem ocorrer interrupções por manutenção, instabilidades na API <a href="https://api.gametools.network/docs" target="_blank">gametools.network</a> (serviço externo e independente) ou por questões de infraestrutura da plataforma de hospedagem Fly.io. O administrador do bot não se responsabiliza por dados desatualizados, indisponibilidade temporária ou imprecisões provenientes da API externa.
+                </p>
+
+                <!-- 6. Cancelamento -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 06. Cancelamento e remoção</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-title"><i class="fa-solid fa-right-from-bracket" style="color:var(--red);margin-right:8px;"></i>Remoção automática</div>
+                    <div class="card-body">Ao sair do servidor BFBR, seus dados são removidos automaticamente em até <strong>24 horas</strong> e seus cargos relacionados ao bot são revogados.</div>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-title"><i class="fa-solid fa-user-xmark" style="color:var(--red);margin-right:8px;"></i>Remoção manual</div>
+                    <div class="card-body">Você pode solicitar a remoção do seu cadastro a qualquer momento entrando em contato com a <strong>@Staff BFBR</strong> ou com <a href="https://discord.com/users/84299190288523264" target="_blank">@Dedo_Ninja</a> via Discord.</div>
+                </div>
+
+                <!-- 7. Limitação de responsabilidade -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 07. Limitação de responsabilidade</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <p class="prose">
+                    O Bot Redsec KD é um projeto independente e comunitário, sem fins lucrativos. Não nos responsabilizamos por decisões tomadas com base nas estatísticas exibidas pelo bot, por erros na API externa, ou por qualquer dano indireto decorrente do uso do serviço. As estatísticas são obtidas de fontes públicas e podem não refletir o estado atual do jogo em tempo real.
+                </p>
+
+                <!-- 8. Alterações -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 08. Alterações nos termos</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <p class="prose">
+                    Estes termos podem ser atualizados a qualquer momento. Alterações relevantes serão comunicadas no servidor BFBR. O uso continuado do bot após alterações implica aceitação dos novos termos.
+                </p>
+
+                <!-- 9. Contato -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 09. Contato</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <p class="prose">
+                    Dúvidas sobre estes termos? Entre em contato pelo servidor Discord:<br>
                     <a href="https://discord.gg/YUAkpKM" target="_blank">discord.gg/YUAkpKM</a> — fale com a <strong>@Staff BFBR</strong> ou com <a href="https://discord.com/users/84299190288523264" target="_blank">@Dedo_Ninja</a>.
                 </p>
 
@@ -583,157 +517,138 @@
                     <strong>Disclaimer:</strong> Bot Redsec KD and the BFBR community have no official affiliation with EA, DICE, or the Battlefield brand. This is an independent bot created to help manage a Battlefield players community on Discord.
                 </div>
 
-                <!-- 1. What is -->
+                <!-- 1. Acceptance -->
                 <div class="section-header">
                     <div class="section-header-line"></div>
-                    <span class="section-title">// 01. What is this bot</span>
+                    <span class="section-title">// 01. Acceptance of terms</span>
                     <div class="section-header-line"></div>
                 </div>
 
                 <p class="prose">
-                    <strong>Bot Redsec KD</strong> is a Discord bot created for the <strong>Battlefield Brasil (BFBR)</strong> community. Its main functions are tracking players' Battlefield 6 statistics (K/D ratio, competitive rank, etc.) through the public <a href="https://api.gametools.network/docs" target="_blank">gametools.network</a> API, assigning Discord roles based on performance, managing temporary voice channels, and running daily automatic stat updates for registered players.
+                    By using <strong>Bot Redsec KD</strong> in the Battlefield Brasil (BFBR) Discord server, you agree to these Terms of Service. Use of the bot is voluntary and restricted to the BFBR server. If you do not agree with these terms, simply refrain from using the bot's commands.
                 </p>
 
-                <!-- 2. Data collected -->
+                <!-- 2. Service description -->
                 <div class="section-header">
                     <div class="section-header-line"></div>
-                    <span class="section-title">// 02. Data collected</span>
-                    <div class="section-header-line"></div>
-                </div>
-
-                <p class="prose">The following data is collected at registration and automatically updated every 24 hours:</p>
-
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Source</th>
-                            <th>Purpose</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Discord ID</td>
-                            <td>Discord</td>
-                            <td>Identify the user in the database</td>
-                        </tr>
-                        <tr>
-                            <td>EA Gamertag</td>
-                            <td>Provided by user</td>
-                            <td>Fetch statistics from the gametools.network API</td>
-                        </tr>
-                        <tr>
-                            <td>Platform</td>
-                            <td>Provided by user</td>
-                            <td>Correctly filter API results (ea, steam, psn, xbox, epic)</td>
-                        </tr>
-                        <tr>
-                            <td>Registration date</td>
-                            <td>Generated by bot</td>
-                            <td>Internal record</td>
-                        </tr>
-                        <tr>
-                            <td>persona_id / nucleus_id</td>
-                            <td>gametools.network API (public)</td>
-                            <td>Technical EA account identifiers used for future API queries</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <p class="prose">
-                    In-game statistics (K/D, rank, Human%, etc.) are fetched in real time from the public <a href="https://api.gametools.network/docs" target="_blank">gametools.network</a> API and are <strong>not stored</strong> — they are only displayed on demand.
-                </p>
-
-                <!-- 3. Storage -->
-                <div class="section-header">
-                    <div class="section-header-line"></div>
-                    <span class="section-title">// 03. Data storage</span>
+                    <span class="section-title">// 02. Service description</span>
                     <div class="section-header-line"></div>
                 </div>
 
                 <p class="prose">
-                    Data is stored in a <strong>users.json</strong> file on a private server hosted on <strong>Fly.io</strong> (São Paulo, Brazil region). No data is shared with third parties, sold, or used to train artificial intelligence models.
-                </p>
-
-                <!-- 4. Retention -->
-                <div class="section-header">
-                    <div class="section-header-line"></div>
-                    <span class="section-title">// 04. Retention and deletion</span>
-                    <div class="section-header-line"></div>
-                </div>
-
-                <div class="info-card">
-                    <div class="card-title"><i class="fa-solid fa-clock" style="color:var(--red);margin-right:8px;"></i>Automatic removal</div>
-                    <div class="card-body">When you leave the BFBR server, your data is automatically removed from the database within <strong>24 hours</strong>.</div>
-                </div>
-
-                <div class="info-card">
-                    <div class="card-title"><i class="fa-solid fa-user-xmark" style="color:var(--red);margin-right:8px;"></i>Manual removal</div>
-                    <div class="card-body">While you remain in the server, you may request deletion of your data at any time by contacting a member of the <strong>@Staff BFBR</strong> or directly contacting the bot administrator, <a href="https://discord.com/users/84299190288523264" target="_blank">@Dedo_Ninja</a>, via Discord.</div>
-                </div>
-
-                <!-- 5. Discord Intents -->
-                <div class="section-header">
-                    <div class="section-header-line"></div>
-                    <span class="section-title">// 05. Discord Privileged Intents</span>
-                    <div class="section-header-line"></div>
-                </div>
-
-                <p class="prose">The bot uses the following Discord privileged intents:</p>
-
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Intent</th>
-                            <th>Purpose</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Server Members Intent</td>
-                            <td>Manage temporary voice channels (detect empty channels for automatic deletion) and assign roles to members</td>
-                        </tr>
-                        <tr>
-                            <td>Message Content Intent</td>
-                            <td>Backward compatibility with legacy prefix commands (!command) used in previous bot versions</td>
-                        </tr>
-                        <tr>
-                            <td>Presence Intent</td>
-                            <td>Reserved for future features related to player presence status</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <!-- 6. User rights -->
-                <div class="section-header">
-                    <div class="section-header-line"></div>
-                    <span class="section-title">// 06. Your rights</span>
-                    <div class="section-header-line"></div>
-                </div>
-
-                <p class="prose">
-                    As a Brazilian-based service, this bot complies with <strong>Brazil's General Data Protection Law (LGPD, Law nº 13.709/2018)</strong>. You have the following rights regarding your data:
+                    Bot Redsec KD is a free tool that provides the following services within the BFBR server:
                 </p>
 
                 <div class="info-card">
                     <div class="card-body">
-                        <strong style="color:rgba(255,255,255,0.75);">• Access:</strong> Request what data is stored about you.<br>
-                        <strong style="color:rgba(255,255,255,0.75);">• Correction:</strong> Request correction of incorrect data (e.g., wrong gamertag).<br>
-                        <strong style="color:rgba(255,255,255,0.75);">• Deletion:</strong> Request removal of your data at any time.<br>
-                        <strong style="color:rgba(255,255,255,0.75);">• Portability:</strong> Request your data in a readable format.<br><br>
-                        To exercise any of these rights, contact <a href="https://discord.com/users/84299190288523264" target="_blank">@Dedo_Ninja</a> or any member of <strong>@Staff BFBR</strong> on the <a href="https://discord.gg/YUAkpKM" target="_blank">Battlefield Brasil</a> Discord server.
+                        <strong style="color:rgba(255,255,255,0.75);">• K/D lookup:</strong> Fetches and displays Battlefield 6 statistics via the public gametools.network API.<br>
+                        <strong style="color:rgba(255,255,255,0.75);">• Role assignment:</strong> Grants Discord roles based on the player's K/D ratio and competitive rank.<br>
+                        <strong style="color:rgba(255,255,255,0.75);">• Temporary voice channels:</strong> Automatic creation and management of voice channels.<br>
+                        <strong style="color:rgba(255,255,255,0.75);">• Automatic updates:</strong> Daily stat and role updates for all registered players.
                     </div>
                 </div>
 
-                <!-- 7. Contact -->
+                <!-- 3. Registration -->
                 <div class="section-header">
                     <div class="section-header-line"></div>
-                    <span class="section-title">// 07. Contact</span>
+                    <span class="section-title">// 03. Registration and use</span>
                     <div class="section-header-line"></div>
                 </div>
 
                 <p class="prose">
-                    Questions about this policy? Reach out on Discord:<br>
+                    To register, the user must voluntarily provide their <strong>EA gamertag</strong> and <strong>platform</strong>. By registering, the user:
+                </p>
+
+                <div class="info-card">
+                    <div class="card-body">
+                        • Has legitimate right to use the provided gamertag.<br>
+                        • Authorizes the bot to query their public game stats via the gametools.network API.<br>
+                        • Authorizes storage of their Discord ID, gamertag, platform, and technical EA account identifiers (persona_id / nucleus_id) for bot operation purposes.<br>
+                        • Understands that their server roles will be automatically assigned or updated based on retrieved statistics.
+                    </div>
+                </div>
+
+                <!-- 4. Rules -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 04. Usage rules</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <p class="prose">The following uses are prohibited:</p>
+
+                <div class="info-card">
+                    <div class="card-body">
+                        • Registering another person's gamertag without their authorization.<br>
+                        • Attempting to manipulate, exploit, or abuse any bot functionality.<br>
+                        • Any use that violates <a href="https://discord.com/terms" target="_blank">Discord's Terms of Service</a> or the BFBR server rules.<br>
+                        • Abuse of temporary voice channels or role assignment systems.
+                    </div>
+                </div>
+
+                <p class="prose">
+                    Violation of these rules may result in a ban from bot features or the server, at the discretion of the BFBR Staff.
+                </p>
+
+                <!-- 5. Availability -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 05. Availability</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <p class="prose">
+                    The bot is provided free of charge with no guarantee of continuous availability. Interruptions may occur due to maintenance, instability in the external <a href="https://api.gametools.network/docs" target="_blank">gametools.network</a> API, or hosting infrastructure issues on Fly.io. The bot administrator is not responsible for outdated data, temporary unavailability, or inaccuracies originating from the external API.
+                </p>
+
+                <!-- 6. Cancellation -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 06. Cancellation and removal</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-title"><i class="fa-solid fa-right-from-bracket" style="color:var(--red);margin-right:8px;"></i>Automatic removal</div>
+                    <div class="card-body">When you leave the BFBR server, your data is automatically removed within <strong>24 hours</strong> and your bot-related roles are revoked.</div>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-title"><i class="fa-solid fa-user-xmark" style="color:var(--red);margin-right:8px;"></i>Manual removal</div>
+                    <div class="card-body">You may request removal of your registration at any time by contacting <strong>@Staff BFBR</strong> or <a href="https://discord.com/users/84299190288523264" target="_blank">@Dedo_Ninja</a> via Discord.</div>
+                </div>
+
+                <!-- 7. Limitation of liability -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 07. Limitation of liability</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <p class="prose">
+                    Bot Redsec KD is an independent, non-profit community project. We are not responsible for decisions made based on bot-displayed statistics, errors in the external API, or any indirect damages resulting from use of the service. Statistics are obtained from public sources and may not reflect real-time game data.
+                </p>
+
+                <!-- 8. Changes -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 08. Changes to terms</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <p class="prose">
+                    These terms may be updated at any time. Relevant changes will be communicated in the BFBR server. Continued use of the bot after changes implies acceptance of the new terms.
+                </p>
+
+                <!-- 9. Contact -->
+                <div class="section-header">
+                    <div class="section-header-line"></div>
+                    <span class="section-title">// 09. Contact</span>
+                    <div class="section-header-line"></div>
+                </div>
+
+                <p class="prose">
+                    Questions about these terms? Reach out on Discord:<br>
                     <a href="https://discord.gg/YUAkpKM" target="_blank">discord.gg/YUAkpKM</a> — talk to <strong>@Staff BFBR</strong> or <a href="https://discord.com/users/84299190288523264" target="_blank">@Dedo_Ninja</a>.
                 </p>
 
